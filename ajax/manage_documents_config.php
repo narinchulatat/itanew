@@ -39,6 +39,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
         }
         
+    } elseif ($action === 'save_full_config') {
+        $year = intval($_POST['year'] ?? 0);
+        $quarter = intval($_POST['quarter'] ?? 0);
+        $main_category_id = !empty($_POST['main_category_id']) ? intval($_POST['main_category_id']) : null;
+        $sub_category_id = !empty($_POST['sub_category_id']) ? intval($_POST['sub_category_id']) : null;
+        $is_active = intval($_POST['is_active'] ?? 1);
+        
+        if ($year <= 0 || $quarter < 1 || $quarter > 4) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid year or quarter']);
+            exit;
+        }
+        
+        try {
+            // Use INSERT ... ON DUPLICATE KEY UPDATE for MySQL or INSERT OR REPLACE for SQLite
+            $stmt = $pdo->prepare("
+                INSERT INTO manage_documents_config (user_id, year, quarter, main_category_id, sub_category_id, is_active) 
+                VALUES (?, ?, ?, ?, ?, ?) 
+                ON DUPLICATE KEY UPDATE 
+                    year = VALUES(year),
+                    quarter = VALUES(quarter), 
+                    main_category_id = VALUES(main_category_id),
+                    sub_category_id = VALUES(sub_category_id),
+                    is_active = VALUES(is_active),
+                    updated_at = CURRENT_TIMESTAMP
+            ");
+            $stmt->execute([$user_id, $year, $quarter, $main_category_id, $sub_category_id, $is_active]);
+            
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            // Fallback for systems that don't support ON DUPLICATE KEY UPDATE
+            try {
+                // First try to update existing record
+                $updateStmt = $pdo->prepare("
+                    UPDATE manage_documents_config 
+                    SET year = ?, quarter = ?, main_category_id = ?, sub_category_id = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE user_id = ?
+                ");
+                $updateStmt->execute([$year, $quarter, $main_category_id, $sub_category_id, $is_active, $user_id]);
+                
+                if ($updateStmt->rowCount() == 0) {
+                    // No existing record, insert new one
+                    $insertStmt = $pdo->prepare("
+                        INSERT INTO manage_documents_config (user_id, year, quarter, main_category_id, sub_category_id, is_active) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    $insertStmt->execute([$user_id, $year, $quarter, $main_category_id, $sub_category_id, $is_active]);
+                }
+                
+                echo json_encode(['success' => true]);
+            } catch (Exception $fallbackError) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Database error: ' . $fallbackError->getMessage()]);
+            }
+        }
+        
+    } elseif ($action === 'delete_config') {
+        try {
+            $stmt = $pdo->prepare("DELETE FROM manage_documents_config WHERE user_id = ?");
+            $stmt->execute([$user_id]);
+            
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+        }
+        
     } elseif ($action === 'get_categories') {
         $year = intval($_POST['year'] ?? 0);
         $quarter = intval($_POST['quarter'] ?? 0);

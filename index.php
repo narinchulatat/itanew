@@ -1,13 +1,13 @@
 <?php
 $page = $_GET['page'] ?? 'home';
 // ตรวจสอบ session/role admin ก่อน include sidebar/page admin
-$adminPages = ['manage_home_display','manage_years','manage_categories','manage_documents','manage_documents_','manage_subcategories','manage_users','approve_documents'];
+$adminPages = ['manage_home_display','manage_years','manage_categories','manage_documents','manage_documents_config','manage_subcategories','manage_users','approve_documents'];
 if (in_array($page, $adminPages)) {
     if (session_status() == PHP_SESSION_NONE) {
         session_start();
     }
-    // เฉพาะ manage_documents ให้ role_id == 1 หรือ 3 เข้าได้
-    if ($page === 'manage_documents') {
+    // เฉพาะ manage_documents และ manage_documents_config ให้ role_id == 1 หรือ 3 เข้าได้
+    if (in_array($page, ['manage_documents', 'manage_documents_config'])) {
         if (!isset($_SESSION['role_id']) || !in_array($_SESSION['role_id'], ['1','3'])) {
             header('Location: login.php');
             exit();

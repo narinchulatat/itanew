@@ -64,6 +64,12 @@ if ($isLoggedIn) {
                         <span>อัพโหลดเอกสาร</span>
                     </a>
                 </li>
+                <li>
+                    <a href="index.php?page=manage_documents_config" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors duration-200 <?= ($page == 'manage_documents_config') ? 'bg-blue-600 text-white' : ''; ?>">
+                        <i class="fas fa-cog mr-3"></i>
+                        <span>ตั้งค่าจัดการเอกสาร</span>
+                    </a>
+                </li>
             <?php endif; ?>
             <!-- Menu สำหรับ Admin (role_id = 1) -->
             <?php if ($isLoggedIn && $role_id == '1'): ?>
@@ -71,6 +77,12 @@ if ($isLoggedIn) {
                     <a href="index.php?page=manage_documents" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors duration-200 <?= ($page == 'manage_documents') ? 'bg-blue-600 text-white' : ''; ?>">
                         <i class="fas fa-upload mr-3"></i>
                         <span>อัพโหลดเอกสาร</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="index.php?page=manage_documents_config" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors duration-200 <?= ($page == 'manage_documents_config') ? 'bg-blue-600 text-white' : ''; ?>">
+                        <i class="fas fa-cog mr-3"></i>
+                        <span>ตั้งค่าจัดการเอกสาร</span>
                     </a>
                 </li>
                 <li>
