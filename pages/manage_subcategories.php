@@ -68,6 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 ob_end_flush(); // ส่งบัฟเฟอร์เอาต์พุตทั้งหมด
 
+// Get all years for dropdown
+$years_stmt = $pdo->query("SELECT id, year FROM years ORDER BY year DESC");
+$years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
@@ -300,21 +304,43 @@ ob_end_flush(); // ส่งบัฟเฟอร์เอาต์พุตท�
         <div class="px-6 py-6">
             <form id="subcategoryForm" action="index.php?page=manage_subcategories" method="POST">
                 <div class="space-y-4">
+                    <input type="hidden" id="subcategoryId" name="id">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="year_id" class="block text-sm font-medium text-gray-700 mb-2">ปี:</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
+                                    id="year_id" 
+                                    name="year_id" 
+                                    required onchange="loadCategoriesForYearQuarter()">
+                                <option value="">เลือกปี</option>
+                                <?php foreach ($years as $year): ?>
+                                    <option value="<?= $year['id'] ?>"><?= htmlspecialchars($year['year']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="quarter" class="block text-sm font-medium text-gray-700 mb-2">ไตรมาส:</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
+                                    id="quarter" 
+                                    name="quarter" 
+                                    required onchange="loadCategoriesForYearQuarter()">
+                                <option value="">เลือกไตรมาส</option>
+                                <option value="1">ไตรมาส 1</option>
+                                <option value="2">ไตรมาส 2</option>
+                                <option value="3">ไตรมาส 3</option>
+                                <option value="4">ไตรมาส 4</option>
+                            </select>
+                        </div>
+                    </div>
+                    
                     <div>
                         <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">หมวดหมู่หลัก</label>
                         <select class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 select2-dropdown" 
                                 id="category_id" 
                                 name="category_id" 
                                 required>
-                            <option value="">เลือกหมวดหมู่หลัก</option>
-                            <?php
-                            // ดึงข้อมูล categories เพื่อแสดงใน select option
-                            $stmt = $pdo->prepare("SELECT * FROM categories");
-                            $stmt->execute();
-                            $categories = $stmt->fetchAll();
-                            foreach ($categories as $category) : ?>
-                                <option value="<?= $category['id'] ?>"><?= htmlspecialchars($category['name']) ?></option>
-                            <?php endforeach; ?>
+                            <option value="">เลือกปีและไตรมาสก่อน</option>
                         </select>
                     </div>
                     
@@ -355,6 +381,50 @@ ob_end_flush(); // ส่งบัฟเฟอร์เอาต์พุตท�
         document.getElementById('subcategoryFormSubmitButton').innerHTML = '<i class="fas fa-save mr-2"></i>Add Subcategory';
         document.getElementById('subcategoryFormSubmitButton').setAttribute('name', 'add_subcategory');
         $('#category_id').val('').trigger('change');
+        $('#year_id').val('').trigger('change');
+        $('#quarter').val('').trigger('change');
+        clearCategoryDropdown();
+    }
+    
+    function loadCategoriesForYearQuarter() {
+        const yearId = $('#year_id').val();
+        const quarter = $('#quarter').val();
+        
+        // Clear categories
+        clearCategoryDropdown();
+        
+        if (yearId && quarter) {
+            $.post('ajax/get_categories.php', {
+                year_id: yearId,
+                quarter: quarter
+            })
+            .done(function(response) {
+                const data = JSON.parse(response);
+                updateCategoryDropdown(data.categories);
+            })
+            .fail(function() {
+                console.error('Failed to load categories');
+            });
+        }
+    }
+    
+    function updateCategoryDropdown(categories) {
+        const categorySelect = $('#category_id');
+        categorySelect.empty();
+        categorySelect.append('<option value="">เลือกหมวดหมู่หลัก</option>');
+        
+        categories.forEach(function(category) {
+            categorySelect.append('<option value="' + category.id + '">' + category.name + '</option>');
+        });
+        
+        categorySelect.trigger('change');
+    }
+    
+    function clearCategoryDropdown() {
+        const categorySelect = $('#category_id');
+        categorySelect.empty();
+        categorySelect.append('<option value="">เลือกปีและไตรมาสก่อน</option>');
+        categorySelect.trigger('change');
     }
 
     // ปิด modal เมื่อคลิกที่ backdrop
