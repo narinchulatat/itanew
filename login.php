@@ -18,8 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         // บันทึกข้อมูลการเข้าสู่ระบบในตาราง login_logs
         $ip_address = $_SERVER['REMOTE_ADDR']; // เก็บ IP Address ของผู้ใช้ที่ล็อกอิน
-        $log_stmt = $pdo->prepare("INSERT INTO login_logs (user_id, login_time, ip_address) VALUES (?, NOW(), ?)");
-        $log_stmt->execute([$user['id'], $ip_address]);
+        try {
+            $log_stmt = $pdo->prepare("INSERT INTO login_logs (user_id, login_time, ip_address) VALUES (?, datetime('now'), ?)");
+            $log_stmt->execute([$user['id'], $ip_address]);
+        } catch (Exception $e) {
+            // Log error but don't stop the login process
+            error_log("Login log failed: " . $e->getMessage());
+        }
 
         echo "<script>
             document.addEventListener('DOMContentLoaded', function() {
