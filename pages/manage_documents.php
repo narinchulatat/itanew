@@ -146,30 +146,14 @@ $stmt = $pdo->query("SELECT d.id, d.title, d.content, d.status, d.file_name, d.f
                      LEFT JOIN users u ON d.uploaded_by = u.id");
 $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch user's manage_documents config
-$user_config_stmt = $pdo->prepare("SELECT * FROM manage_documents_config WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1");
-$user_config_stmt->execute([$user_id]);
-$user_config = $user_config_stmt->fetch(PDO::FETCH_ASSOC);
-
-// Use user config if available, otherwise use default values
-$year_id = $user_config ? $user_config['year'] : null;
-$quarter = $user_config ? $user_config['quarter'] : null;
-
 // Get all years for dropdown
 $years_stmt = $pdo->query("SELECT id, year FROM years ORDER BY year DESC");
 $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch categories based on selected year/quarter
-if ($year_id && $quarter) {
-    $stmt = $pdo->prepare("SELECT * FROM categories WHERE year = ? AND `quarter` = ? ORDER BY name");
-    $stmt->execute([$year_id, $quarter]);
-    $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} else {
-    $categories = [];
-}
-// Fetch all subcategories
-$stmt = $pdo->query("SELECT * FROM subcategories");
-$subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Fetch all categories (will be filtered by JavaScript)
+$categories = [];
+// Fetch all subcategories (will be filtered by JavaScript)
+$subcategories = [];
 ?>
 
 <!DOCTYPE html>
@@ -369,57 +353,7 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </style>
 </head>
 <body>
-    <!-- Configuration Panel -->
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
-        <div class="flex items-center justify-between mb-3">
-            <h4 class="text-lg font-semibold text-gray-800">ตั้งค่าการแสดงผล</h4>
-            <button id="saveConfigBtn" class="bg-blue-600 text-white rounded px-3 py-1 hover:bg-blue-700 text-sm">
-                <i class="fa fa-save mr-1"></i>บันทึกการตั้งค่า
-            </button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">ปี</label>
-                <div class="custom-dropdown" id="config_year_dropdown">
-                    <div class="dropdown-button" onclick="toggleDropdown('config_year_dropdown')">
-                        <span id="config_year_selected">เลือกปี</span>
-                        <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </div>
-                    <div class="dropdown-content hidden">
-                        <input type="text" class="dropdown-search" placeholder="ค้นหาปี..." onkeyup="filterDropdown('config_year_dropdown', this.value)">
-                        <div class="dropdown-option" data-value="" onclick="selectConfigYear('', 'เลือกปี')">เลือกปี</div>
-                        <?php foreach ($years as $year): ?>
-                            <div class="dropdown-option" data-value="<?= $year['id'] ?>" onclick="selectConfigYear('<?= $year['id'] ?>', '<?= htmlspecialchars($year['year']) ?>')"><?= htmlspecialchars($year['year']) ?></div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <input type="hidden" id="config_year" value="<?= $year_id ?>" />
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาส</label>
-                <div class="custom-dropdown" id="config_quarter_dropdown">
-                    <div class="dropdown-button" onclick="toggleDropdown('config_quarter_dropdown')">
-                        <span id="config_quarter_selected">เลือกไตรมาส</span>
-                        <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </div>
-                    <div class="dropdown-content hidden">
-                        <div class="dropdown-option" data-value="" onclick="selectConfigQuarter('', 'เลือกไตรมาส')">เลือกไตรมาส</div>
-                        <div class="dropdown-option" data-value="1" onclick="selectConfigQuarter('1', 'ไตรมาส 1')">ไตรมาส 1</div>
-                        <div class="dropdown-option" data-value="2" onclick="selectConfigQuarter('2', 'ไตรมาส 2')">ไตรมาส 2</div>
-                        <div class="dropdown-option" data-value="3" onclick="selectConfigQuarter('3', 'ไตรมาส 3')">ไตรมาส 3</div>
-                        <div class="dropdown-option" data-value="4" onclick="selectConfigQuarter('4', 'ไตรมาส 4')">ไตรมาส 4</div>
-                    </div>
-                </div>
-                <input type="hidden" id="config_quarter" value="<?= $quarter ?>" />
-            </div>
-        </div>
-        <div id="configStatus" class="mt-2 text-sm text-gray-600"></div>
-    </div>
-    
+
     <div class="flex items-center justify-between mb-4">
         <h3 class="text-xl font-bold text-blue-700">จัดการเอกสาร</h3>
         <button onclick="openModal()" class="bg-green-600 text-white rounded px-4 py-2 hover:bg-green-700"><i class="fa fa-plus mr-2"></i>เพิ่มเอกสาร</button>
@@ -509,21 +443,58 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <label for="content">รายละเอียด:</label>
                     <textarea class="border rounded px-3 py-2 w-full" id="content" name="content" placeholder="รายละเอียด" rows="5" required></textarea>
                 </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="year_id">ปี:</label>
+                        <div class="custom-dropdown" id="year_dropdown">
+                            <div class="dropdown-button" onclick="toggleDropdown('year_dropdown')">
+                                <span id="year_selected">เลือกปี</span>
+                                <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </div>
+                            <div class="dropdown-content hidden">
+                                <input type="text" class="dropdown-search" placeholder="ค้นหาปี..." onkeyup="filterDropdown('year_dropdown', this.value)">
+                                <div class="dropdown-option" data-value="" onclick="selectYear('', 'เลือกปี')">เลือกปี</div>
+                                <?php foreach ($years as $year): ?>
+                                    <div class="dropdown-option" data-value="<?= $year['id'] ?>" onclick="selectYear('<?= $year['id'] ?>', '<?= htmlspecialchars($year['year']) ?>')"><?= htmlspecialchars($year['year']) ?></div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <input type="hidden" id="year_id" name="year_id" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quarter">ไตรมาส:</label>
+                        <div class="custom-dropdown" id="quarter_dropdown">
+                            <div class="dropdown-button" onclick="toggleDropdown('quarter_dropdown')">
+                                <span id="quarter_selected">เลือกไตรมาส</span>
+                                <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </div>
+                            <div class="dropdown-content hidden">
+                                <div class="dropdown-option" data-value="" onclick="selectQuarter('', 'เลือกไตรมาส')">เลือกไตรมาส</div>
+                                <div class="dropdown-option" data-value="1" onclick="selectQuarter('1', 'ไตรมาส 1')">ไตรมาส 1</div>
+                                <div class="dropdown-option" data-value="2" onclick="selectQuarter('2', 'ไตรมาส 2')">ไตรมาส 2</div>
+                                <div class="dropdown-option" data-value="3" onclick="selectQuarter('3', 'ไตรมาส 3')">ไตรมาส 3</div>
+                                <div class="dropdown-option" data-value="4" onclick="selectQuarter('4', 'ไตรมาส 4')">ไตรมาส 4</div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="quarter" name="quarter" required>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="category_id">หมวดหมู่หลัก:</label>
                     <div class="custom-dropdown" id="category_dropdown">
                         <div class="dropdown-button" onclick="toggleDropdown('category_dropdown')">
-                            <span id="category_selected">เลือกหมวดหมู่หลัก</span>
+                            <span id="category_selected">เลือกปีและไตรมาสก่อน</span>
                             <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </div>
                         <div class="dropdown-content hidden">
                             <input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่..." onkeyup="filterDropdown('category_dropdown', this.value)">
-                            <div class="dropdown-option" data-value="" onclick="selectOption('category_dropdown', '', 'เลือกหมวดหมู่หลัก')">เลือกหมวดหมู่หลัก</div>
-                            <?php foreach ($categories as $category): ?>
-                                <div class="dropdown-option" data-value="<?= $category['id'] ?>" onclick="selectCategory('<?= $category['id'] ?>', '<?= htmlspecialchars($category['name']) ?>')"><?= htmlspecialchars($category['name']) ?></div>
-                            <?php endforeach; ?>
+                            <div class="dropdown-option" data-value="" onclick="selectOption('category_dropdown', '', 'เลือกหมวดหมู่หลัก')">กรุณาเลือกปีและไตรมาสก่อน</div>
                         </div>
                     </div>
                     <input type="hidden" id="category_id" name="category_id" required>
@@ -532,14 +503,14 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <label for="subcategory_id">หมวดหมู่ย่อย:</label>
                     <div class="custom-dropdown" id="subcategory_dropdown">
                         <div class="dropdown-button" onclick="toggleDropdown('subcategory_dropdown')">
-                            <span id="subcategory_selected">เลือกหมวดหมู่ย่อย</span>
+                            <span id="subcategory_selected">เลือกหมวดหมู่หลักก่อน</span>
                             <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </div>
                         <div class="dropdown-content hidden">
                             <input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown('subcategory_dropdown', this.value)">
-                            <div class="dropdown-option" data-value="" onclick="selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย')">เลือกหมวดหมู่ย่อย</div>
+                            <div class="dropdown-option" data-value="" onclick="selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย')">เลือกหมวดหมู่หลักก่อน</div>
                         </div>
                     </div>
                     <input type="hidden" id="subcategory_id" name="subcategory_id" required>
@@ -579,22 +550,6 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <!-- </div> -->
 <script>
 $(document).ready(function() {
-    // Initialize configuration on page load
-    $(document).ready(function() {
-        // Initialize configuration values if they exist
-        const initialYear = '<?= $year_id ?>';
-        const initialQuarter = '<?= $quarter ?>';
-        
-        if (initialYear && initialQuarter) {
-            const yearText = getYearText(initialYear);
-            const quarterText = `ไตรมาส ${initialQuarter}`;
-            
-            setDropdownValue('config_year_dropdown', initialYear, yearText);
-            setDropdownValue('config_quarter_dropdown', initialQuarter, quarterText);
-            updateConfigStatus(yearText, quarterText);
-        }
-    });
-    
     // DataTables
     $('#documentsTable').DataTable({
         paging: true,
@@ -627,61 +582,38 @@ $(document).ready(function() {
         }
     });
 
-    // Configuration Functions
-    window.loadUserConfig = function() {
-        $.get('ajax/manage_documents_config.php?action=get_config')
+    // Year and Quarter selection functions
+    window.selectYear = function(yearId, yearText) {
+        selectOption('year_dropdown', yearId, yearText);
+        loadCategoriesForYearQuarter();
+    };
+    
+    window.selectQuarter = function(quarter, quarterText) {
+        selectOption('quarter_dropdown', quarter, quarterText);
+        loadCategoriesForYearQuarter();
+    };
+    
+    window.loadCategoriesForYearQuarter = function() {
+        const yearId = $('#year_id').val();
+        const quarter = $('#quarter').val();
+        
+        // Clear categories and subcategories
+        clearCategoryDropdown();
+        clearSubcategoryDropdown();
+        
+        if (yearId && quarter) {
+            $.post('ajax/get_categories.php', {
+                year_id: yearId,
+                quarter: quarter
+            })
             .done(function(response) {
                 const data = JSON.parse(response);
-                if (data.config) {
-                    const yearText = getYearText(data.config.year);
-                    const quarterText = `ไตรมาส ${data.config.quarter}`;
-                    
-                    setDropdownValue('config_year_dropdown', data.config.year, yearText);
-                    setDropdownValue('config_quarter_dropdown', data.config.quarter, quarterText);
-                    
-                    updateConfigStatus(yearText, quarterText);
-                    loadCategoriesForConfig(data.config.year, data.config.quarter);
-                }
+                updateCategoryDropdown(data.categories);
             })
             .fail(function() {
-                console.error('Failed to load user configuration');
+                console.error('Failed to load categories');
             });
-    };
-    
-    window.selectConfigYear = function(yearId, yearText) {
-        selectOption('config_year_dropdown', yearId, yearText);
-        const quarter = $('#config_quarter').val();
-        if (yearId && quarter) {
-            loadCategoriesForConfig(yearId, quarter);
-            updateConfigStatus(yearText, `ไตรมาส ${quarter}`);
         }
-    };
-    
-    window.selectConfigQuarter = function(quarter, quarterText) {
-        selectOption('config_quarter_dropdown', quarter, quarterText);
-        const yearId = $('#config_year').val();
-        if (yearId && quarter) {
-            const yearText = $('#config_year_selected').text();
-            loadCategoriesForConfig(yearId, quarter);
-            updateConfigStatus(yearText, quarterText);
-        }
-    };
-    
-    window.loadCategoriesForConfig = function(yearId, quarter) {
-        $.post('ajax/manage_documents_config.php', {
-            action: 'get_categories',
-            year: yearId,
-            quarter: quarter
-        })
-        .done(function(response) {
-            const data = JSON.parse(response);
-            updateCategoryDropdown(data.categories);
-            // Clear subcategory dropdown
-            clearSubcategoryDropdown();
-        })
-        .fail(function() {
-            console.error('Failed to load categories');
-        });
     };
     
     window.updateCategoryDropdown = function(categories) {
@@ -699,76 +631,17 @@ $(document).ready(function() {
         selectOption('category_dropdown', '', 'เลือกหมวดหมู่หลัก');
     };
     
+    window.clearCategoryDropdown = function() {
+        const categoryContent = document.getElementById('category_dropdown').querySelector('.dropdown-content');
+        categoryContent.innerHTML = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่..." onkeyup="filterDropdown(\'category_dropdown\', this.value)"><div class="dropdown-option" data-value="" onclick="selectOption(\'category_dropdown\', \'\', \'เลือกหมวดหมู่หลัก\')">เลือกปีและไตรมาสก่อน</div>';
+        selectOption('category_dropdown', '', 'เลือกปีและไตรมาสก่อน');
+    };
+    
     window.clearSubcategoryDropdown = function() {
         const subcategoryContent = document.getElementById('subcategory_dropdown').querySelector('.dropdown-content');
-        subcategoryContent.innerHTML = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)"><div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่ย่อย</div>';
-        selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย');
+        subcategoryContent.innerHTML = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)"><div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่หลักก่อน</div>';
+        selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่หลักก่อน');
     };
-    
-    window.updateConfigStatus = function(yearText, quarterText) {
-        $('#configStatus').html(`<i class="fa fa-info-circle text-blue-500"></i> กำลังแสดงข้อมูล: ${yearText} ${quarterText}`);
-    };
-    
-    window.getYearText = function(yearId) {
-        const yearOption = document.querySelector(`#config_year_dropdown [data-value="${yearId}"]`);
-        return yearOption ? yearOption.textContent : 'ปีที่เลือก';
-    };
-    
-    window.getSubcategoryText = function(subcategoryId) {
-        const subcategoryOption = document.querySelector(`#subcategory_dropdown [data-value="${subcategoryId}"]`);
-        return subcategoryOption ? subcategoryOption.textContent : 'หมวดหมู่ย่อยที่เลือก';
-    };
-    
-    window.getCategoryText = function(categoryId) {
-        const categoryOption = document.querySelector(`#category_dropdown [data-value="${categoryId}"]`);
-        return categoryOption ? categoryOption.textContent : 'หมวดหมู่หลักที่เลือก';
-    };
-    
-    window.getAccessRightsText = function(accessRights) {
-        return accessRights === 'public' ? 'Public' : accessRights === 'private' ? 'Private' : 'เลือกสิทธิ์การเข้าถึง';
-    };
-    
-    // Save Configuration
-    $('#saveConfigBtn').on('click', function() {
-        const yearId = $('#config_year').val();
-        const quarter = $('#config_quarter').val();
-        
-        if (!yearId || !quarter) {
-            Swal.fire({
-                title: 'ข้อมูลไม่ครบถ้วน',
-                text: 'กรุณาเลือกปีและไตรมาส',
-                icon: 'warning',
-                confirmButtonText: 'ตกลง'
-            });
-            return;
-        }
-        
-        $.post('ajax/manage_documents_config.php', {
-            action: 'save_config',
-            year: yearId,
-            quarter: quarter
-        })
-        .done(function(response) {
-            const data = JSON.parse(response);
-            if (data.success) {
-                Swal.fire({
-                    title: 'สำเร็จ!',
-                    text: 'บันทึกการตั้งค่าเรียบร้อยแล้ว',
-                    icon: 'success',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-            }
-        })
-        .fail(function() {
-            Swal.fire({
-                title: 'ผิดพลาด!',
-                text: 'ไม่สามารถบันทึกการตั้งค่าได้',
-                icon: 'error',
-                confirmButtonText: 'ตกลง'
-            });
-        });
-    });
 
     // Custom Dropdown Functions
     window.toggleDropdown = function(dropdownId) {
@@ -814,7 +687,10 @@ $(document).ready(function() {
         dropdown.querySelectorAll('.dropdown-option').forEach(option => {
             option.classList.remove('selected');
         });
-        dropdown.querySelector(`[data-value="${value}"]`).classList.add('selected');
+        const targetOption = dropdown.querySelector(`[data-value="${value}"]`);
+        if (targetOption) {
+            targetOption.classList.add('selected');
+        }
         
         // Close dropdown
         content.classList.add('hidden');
@@ -832,8 +708,7 @@ $(document).ready(function() {
             return;
         }
         
-        $.post('ajax/manage_documents_config.php', {
-            action: 'get_subcategories',
+        $.post('ajax/get_subcategories.php', {
             category_id: categoryId
         })
         .done(function(response) {
@@ -917,14 +792,6 @@ $(document).ready(function() {
         $('#title').val(title);
         $('#content').val(content);
         
-        // Set category
-        setDropdownValue('category_dropdown', category_id);
-        
-        // Load and set subcategory
-        loadSubcategoriesForCategory(category_id, function() {
-            setDropdownValue('subcategory_dropdown', subcategory_id, getSubcategoryText(subcategory_id));
-        });
-        
         // Set access rights
         setDropdownValue('access_rights_dropdown', access_rights, getAccessRightsText(access_rights));
         
@@ -962,6 +829,10 @@ $(document).ready(function() {
         if (targetOption) {
             targetOption.classList.add('selected');
         }
+    };
+
+    window.getAccessRightsText = function(accessRights) {
+        return accessRights === 'public' ? 'Public' : accessRights === 'private' ? 'Private' : 'เลือกสิทธิ์การเข้าถึง';
     };
 
     // SweetAlert2 for delete confirmation
@@ -1003,13 +874,15 @@ $(document).ready(function() {
         $('#content').val('');
         
         // Reset dropdowns
-        selectOption('category_dropdown', '', 'เลือกหมวดหมู่หลัก');
-        selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย');
+        selectOption('year_dropdown', '', 'เลือกปี');
+        selectOption('quarter_dropdown', '', 'เลือกไตรมาส');
+        selectOption('category_dropdown', '', 'เลือกปีและไตรมาสก่อน');
+        selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่หลักก่อน');
         selectOption('access_rights_dropdown', '', 'เลือกสิทธิ์การเข้าถึง');
         
-        // Clear subcategory options
-        const subcategoryContent = document.getElementById('subcategory_dropdown').querySelector('.dropdown-content');
-        subcategoryContent.innerHTML = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)"><div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่ย่อย</div>';
+        // Clear category and subcategory options
+        clearCategoryDropdown();
+        clearSubcategoryDropdown();
         
         $('#file_upload').val('');
         $('#old_file').remove();
