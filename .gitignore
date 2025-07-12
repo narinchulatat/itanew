@@ -1,0 +1,15 @@
+# Test files
+test_*.html
+run_sql_updates.php
+sql_updates.sql
+
+# Development files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/

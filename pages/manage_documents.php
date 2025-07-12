@@ -146,13 +146,22 @@ $stmt = $pdo->query("SELECT d.id, d.title, d.content, d.status, d.file_name, d.f
                      LEFT JOIN users u ON d.uploaded_by = u.id");
 $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch config ปี/ไตรมาส
-$config = $pdo->query("SELECT * FROM home_display_config LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-$year_id = $config ? $config['year'] : null;
-$quarter = $config ? $config['quarter'] : null;
-// Fetch categories
+// Fetch user's manage_documents config
+$user_config_stmt = $pdo->prepare("SELECT * FROM manage_documents_config WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1");
+$user_config_stmt->execute([$user_id]);
+$user_config = $user_config_stmt->fetch(PDO::FETCH_ASSOC);
+
+// Use user config if available, otherwise use default values
+$year_id = $user_config ? $user_config['year'] : null;
+$quarter = $user_config ? $user_config['quarter'] : null;
+
+// Get all years for dropdown
+$years_stmt = $pdo->query("SELECT id, year FROM years ORDER BY year DESC");
+$years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch categories based on selected year/quarter
 if ($year_id && $quarter) {
-    $stmt = $pdo->prepare("SELECT * FROM categories WHERE year = ? AND `quarter` = ?");
+    $stmt = $pdo->prepare("SELECT * FROM categories WHERE year = ? AND `quarter` = ? ORDER BY name");
     $stmt->execute([$year_id, $quarter]);
     $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
@@ -360,6 +369,57 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </style>
 </head>
 <body>
+    <!-- Configuration Panel -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+            <h4 class="text-lg font-semibold text-gray-800">ตั้งค่าการแสดงผล</h4>
+            <button id="saveConfigBtn" class="bg-blue-600 text-white rounded px-3 py-1 hover:bg-blue-700 text-sm">
+                <i class="fa fa-save mr-1"></i>บันทึกการตั้งค่า
+            </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">ปี</label>
+                <div class="custom-dropdown" id="config_year_dropdown">
+                    <div class="dropdown-button" onclick="toggleDropdown('config_year_dropdown')">
+                        <span id="config_year_selected">เลือกปี</span>
+                        <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </div>
+                    <div class="dropdown-content hidden">
+                        <input type="text" class="dropdown-search" placeholder="ค้นหาปี..." onkeyup="filterDropdown('config_year_dropdown', this.value)">
+                        <div class="dropdown-option" data-value="" onclick="selectConfigYear('', 'เลือกปี')">เลือกปี</div>
+                        <?php foreach ($years as $year): ?>
+                            <div class="dropdown-option" data-value="<?= $year['id'] ?>" onclick="selectConfigYear('<?= $year['id'] ?>', '<?= htmlspecialchars($year['year']) ?>')"><?= htmlspecialchars($year['year']) ?></div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <input type="hidden" id="config_year" value="<?= $year_id ?>" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาส</label>
+                <div class="custom-dropdown" id="config_quarter_dropdown">
+                    <div class="dropdown-button" onclick="toggleDropdown('config_quarter_dropdown')">
+                        <span id="config_quarter_selected">เลือกไตรมาส</span>
+                        <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </div>
+                    <div class="dropdown-content hidden">
+                        <div class="dropdown-option" data-value="" onclick="selectConfigQuarter('', 'เลือกไตรมาส')">เลือกไตรมาส</div>
+                        <div class="dropdown-option" data-value="1" onclick="selectConfigQuarter('1', 'ไตรมาส 1')">ไตรมาส 1</div>
+                        <div class="dropdown-option" data-value="2" onclick="selectConfigQuarter('2', 'ไตรมาส 2')">ไตรมาส 2</div>
+                        <div class="dropdown-option" data-value="3" onclick="selectConfigQuarter('3', 'ไตรมาส 3')">ไตรมาส 3</div>
+                        <div class="dropdown-option" data-value="4" onclick="selectConfigQuarter('4', 'ไตรมาส 4')">ไตรมาส 4</div>
+                    </div>
+                </div>
+                <input type="hidden" id="config_quarter" value="<?= $quarter ?>" />
+            </div>
+        </div>
+        <div id="configStatus" class="mt-2 text-sm text-gray-600"></div>
+    </div>
+    
     <div class="flex items-center justify-between mb-4">
         <h3 class="text-xl font-bold text-blue-700">จัดการเอกสาร</h3>
         <button onclick="openModal()" class="bg-green-600 text-white rounded px-4 py-2 hover:bg-green-700"><i class="fa fa-plus mr-2"></i>เพิ่มเอกสาร</button>
@@ -519,6 +579,22 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <!-- </div> -->
 <script>
 $(document).ready(function() {
+    // Initialize configuration on page load
+    $(document).ready(function() {
+        // Initialize configuration values if they exist
+        const initialYear = '<?= $year_id ?>';
+        const initialQuarter = '<?= $quarter ?>';
+        
+        if (initialYear && initialQuarter) {
+            const yearText = getYearText(initialYear);
+            const quarterText = `ไตรมาส ${initialQuarter}`;
+            
+            setDropdownValue('config_year_dropdown', initialYear, yearText);
+            setDropdownValue('config_quarter_dropdown', initialQuarter, quarterText);
+            updateConfigStatus(yearText, quarterText);
+        }
+    });
+    
     // DataTables
     $('#documentsTable').DataTable({
         paging: true,
@@ -549,6 +625,149 @@ $(document).ready(function() {
             $('.dataTables_wrapper .dataTables_length').addClass('float-left');
             $('.dataTables_wrapper .dataTables_filter').addClass('float-right');
         }
+    });
+
+    // Configuration Functions
+    window.loadUserConfig = function() {
+        $.get('ajax/manage_documents_config.php?action=get_config')
+            .done(function(response) {
+                const data = JSON.parse(response);
+                if (data.config) {
+                    const yearText = getYearText(data.config.year);
+                    const quarterText = `ไตรมาส ${data.config.quarter}`;
+                    
+                    setDropdownValue('config_year_dropdown', data.config.year, yearText);
+                    setDropdownValue('config_quarter_dropdown', data.config.quarter, quarterText);
+                    
+                    updateConfigStatus(yearText, quarterText);
+                    loadCategoriesForConfig(data.config.year, data.config.quarter);
+                }
+            })
+            .fail(function() {
+                console.error('Failed to load user configuration');
+            });
+    };
+    
+    window.selectConfigYear = function(yearId, yearText) {
+        selectOption('config_year_dropdown', yearId, yearText);
+        const quarter = $('#config_quarter').val();
+        if (yearId && quarter) {
+            loadCategoriesForConfig(yearId, quarter);
+            updateConfigStatus(yearText, `ไตรมาส ${quarter}`);
+        }
+    };
+    
+    window.selectConfigQuarter = function(quarter, quarterText) {
+        selectOption('config_quarter_dropdown', quarter, quarterText);
+        const yearId = $('#config_year').val();
+        if (yearId && quarter) {
+            const yearText = $('#config_year_selected').text();
+            loadCategoriesForConfig(yearId, quarter);
+            updateConfigStatus(yearText, quarterText);
+        }
+    };
+    
+    window.loadCategoriesForConfig = function(yearId, quarter) {
+        $.post('ajax/manage_documents_config.php', {
+            action: 'get_categories',
+            year: yearId,
+            quarter: quarter
+        })
+        .done(function(response) {
+            const data = JSON.parse(response);
+            updateCategoryDropdown(data.categories);
+            // Clear subcategory dropdown
+            clearSubcategoryDropdown();
+        })
+        .fail(function() {
+            console.error('Failed to load categories');
+        });
+    };
+    
+    window.updateCategoryDropdown = function(categories) {
+        const categoryContent = document.getElementById('category_dropdown').querySelector('.dropdown-content');
+        let options = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่..." onkeyup="filterDropdown(\'category_dropdown\', this.value)">';
+        options += '<div class="dropdown-option" data-value="" onclick="selectOption(\'category_dropdown\', \'\', \'เลือกหมวดหมู่หลัก\')">เลือกหมวดหมู่หลัก</div>';
+        
+        categories.forEach(function(category) {
+            options += '<div class="dropdown-option" data-value="' + category.id + '" onclick="selectCategory(\'' + category.id + '\', \'' + category.name.replace(/'/g, '&#39;') + '\')">' + category.name + '</div>';
+        });
+        
+        categoryContent.innerHTML = options;
+        
+        // Reset category selection
+        selectOption('category_dropdown', '', 'เลือกหมวดหมู่หลัก');
+    };
+    
+    window.clearSubcategoryDropdown = function() {
+        const subcategoryContent = document.getElementById('subcategory_dropdown').querySelector('.dropdown-content');
+        subcategoryContent.innerHTML = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)"><div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่ย่อย</div>';
+        selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย');
+    };
+    
+    window.updateConfigStatus = function(yearText, quarterText) {
+        $('#configStatus').html(`<i class="fa fa-info-circle text-blue-500"></i> กำลังแสดงข้อมูล: ${yearText} ${quarterText}`);
+    };
+    
+    window.getYearText = function(yearId) {
+        const yearOption = document.querySelector(`#config_year_dropdown [data-value="${yearId}"]`);
+        return yearOption ? yearOption.textContent : 'ปีที่เลือก';
+    };
+    
+    window.getSubcategoryText = function(subcategoryId) {
+        const subcategoryOption = document.querySelector(`#subcategory_dropdown [data-value="${subcategoryId}"]`);
+        return subcategoryOption ? subcategoryOption.textContent : 'หมวดหมู่ย่อยที่เลือก';
+    };
+    
+    window.getCategoryText = function(categoryId) {
+        const categoryOption = document.querySelector(`#category_dropdown [data-value="${categoryId}"]`);
+        return categoryOption ? categoryOption.textContent : 'หมวดหมู่หลักที่เลือก';
+    };
+    
+    window.getAccessRightsText = function(accessRights) {
+        return accessRights === 'public' ? 'Public' : accessRights === 'private' ? 'Private' : 'เลือกสิทธิ์การเข้าถึง';
+    };
+    
+    // Save Configuration
+    $('#saveConfigBtn').on('click', function() {
+        const yearId = $('#config_year').val();
+        const quarter = $('#config_quarter').val();
+        
+        if (!yearId || !quarter) {
+            Swal.fire({
+                title: 'ข้อมูลไม่ครบถ้วน',
+                text: 'กรุณาเลือกปีและไตรมาส',
+                icon: 'warning',
+                confirmButtonText: 'ตกลง'
+            });
+            return;
+        }
+        
+        $.post('ajax/manage_documents_config.php', {
+            action: 'save_config',
+            year: yearId,
+            quarter: quarter
+        })
+        .done(function(response) {
+            const data = JSON.parse(response);
+            if (data.success) {
+                Swal.fire({
+                    title: 'สำเร็จ!',
+                    text: 'บันทึกการตั้งค่าเรียบร้อยแล้ว',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            }
+        })
+        .fail(function() {
+            Swal.fire({
+                title: 'ผิดพลาด!',
+                text: 'ไม่สามารถบันทึกการตั้งค่าได้',
+                icon: 'error',
+                confirmButtonText: 'ตกลง'
+            });
+        });
     });
 
     // Custom Dropdown Functions
@@ -604,7 +823,42 @@ $(document).ready(function() {
 
     window.selectCategory = function(categoryId, categoryName) {
         selectOption('category_dropdown', categoryId, categoryName);
-        loadSubcategories(categoryId);
+        loadSubcategoriesForCategory(categoryId);
+    };
+    
+    window.loadSubcategoriesForCategory = function(categoryId) {
+        if (!categoryId) {
+            clearSubcategoryDropdown();
+            return;
+        }
+        
+        $.post('ajax/manage_documents_config.php', {
+            action: 'get_subcategories',
+            category_id: categoryId
+        })
+        .done(function(response) {
+            const data = JSON.parse(response);
+            updateSubcategoryDropdown(data.subcategories);
+        })
+        .fail(function() {
+            console.error('Failed to load subcategories');
+            clearSubcategoryDropdown();
+        });
+    };
+    
+    window.updateSubcategoryDropdown = function(subcategories) {
+        const subcategoryContent = document.getElementById('subcategory_dropdown').querySelector('.dropdown-content');
+        let options = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)">';
+        options += '<div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่ย่อย</div>';
+        
+        subcategories.forEach(function(subcategory) {
+            options += '<div class="dropdown-option" data-value="' + subcategory.id + '" onclick="selectOption(\'subcategory_dropdown\', \'' + subcategory.id + '\', \'' + subcategory.name.replace(/'/g, '&#39;') + '\')">' + subcategory.name + '</div>';
+        });
+        
+        subcategoryContent.innerHTML = options;
+        
+        // Reset subcategory selection
+        selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย');
     };
 
     window.filterDropdown = function(dropdownId, searchTerm) {
@@ -667,12 +921,12 @@ $(document).ready(function() {
         setDropdownValue('category_dropdown', category_id);
         
         // Load and set subcategory
-        loadSubcategories(category_id, function() {
-            setDropdownValue('subcategory_dropdown', subcategory_id);
+        loadSubcategoriesForCategory(category_id, function() {
+            setDropdownValue('subcategory_dropdown', subcategory_id, getSubcategoryText(subcategory_id));
         });
         
         // Set access rights
-        setDropdownValue('access_rights_dropdown', access_rights);
+        setDropdownValue('access_rights_dropdown', access_rights, getAccessRightsText(access_rights));
         
         $('#file_upload').val('');
         
@@ -691,12 +945,22 @@ $(document).ready(function() {
     });
 
     // Helper function to set dropdown value
-    window.setDropdownValue = function(dropdownId, value) {
+    window.setDropdownValue = function(dropdownId, value, text) {
         const dropdown = document.getElementById(dropdownId);
-        const option = dropdown.querySelector(`[data-value="${value}"]`);
-        if (option) {
-            const text = option.textContent;
-            selectOption(dropdownId, value, text);
+        const selectedSpan = dropdown.querySelector('span[id$="_selected"]');
+        const hiddenInput = document.querySelector(`#${dropdownId.replace('_dropdown', '')}`);
+        
+        // Update display
+        if (selectedSpan) selectedSpan.textContent = text || 'เลือก...';
+        if (hiddenInput) hiddenInput.value = value;
+        
+        // Update selected state
+        dropdown.querySelectorAll('.dropdown-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        const targetOption = dropdown.querySelector(`[data-value="${value}"]`);
+        if (targetOption) {
+            targetOption.classList.add('selected');
         }
     };
 
@@ -761,71 +1025,6 @@ $(document).ready(function() {
             $('#fileName').text('เลือกไฟล์...');
         }
     });
-});
-var subcategories = <?php echo json_encode($subcategories); ?>;
-
-function loadSubcategories(category_id, callback) {
-    const subcategoryContent = document.getElementById('subcategory_dropdown').querySelector('.dropdown-content');
-    let options = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)">';
-    options += '<div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่ย่อย</div>';
-    
-    subcategories.forEach(function(subcat) {
-        if (subcat.category_id == category_id) {
-            options += '<div class="dropdown-option" data-value="' + subcat.id + '" onclick="selectOption(\'subcategory_dropdown\', \'' + subcat.id + '\', \'' + subcat.name.replace(/'/g, '&#39;') + '\')">' + subcat.name + '</div>';
-        }
-    });
-    
-    subcategoryContent.innerHTML = options;
-    
-    // Reset subcategory selection
-    selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย');
-    
-    if (callback) {
-        callback();
-    }
-}
-
-$('#category_id').on('change', function() {
-    var category_id = $(this).val();
-    loadSubcategories(category_id);
-});
-
-$('.edit-btn').on('click', function() {
-    if ($(this).is(':disabled')) return;
-    var row = $(this).closest('tr');
-    var id = row.data('id');
-    var title = row.data('title');
-    var content = row.data('content');
-    var category_id = row.data('category_id');
-    var subcategory_id = row.data('subcategory_id');
-    var access_rights = row.data('access_rights');
-    var file_name = row.data('file_name');
-    
-    $('#id').val(id);
-    $('#title').val(title);
-    $('#content').val(content);
-    
-    // Set category and load subcategories
-    setDropdownValue('category_dropdown', category_id);
-    loadSubcategories(category_id, function() {
-        setDropdownValue('subcategory_dropdown', subcategory_id);
-    });
-    
-    $('#file_upload').val('');
-    setDropdownValue('access_rights_dropdown', access_rights);
-    
-    // Show existing file if any
-    if (file_name) {
-        if ($('#old_file').length === 0) {
-            $('<div id="old_file" class="mb-2 text-sm text-gray-600">ไฟล์เดิม: <a href="uploads/' + file_name + '" target="_blank" class="text-blue-600 underline">' + file_name + '</a></div>').insertBefore('#file_upload');
-        } else {
-            $('#old_file').html('ไฟล์เดิม: <a href="uploads/' + file_name + '" target="_blank" class="text-blue-600 underline">' + file_name + '</a>');
-        }
-    } else {
-        $('#old_file').remove();
-    }
-    
-    openModal();
 });
 </script>
 </body>
