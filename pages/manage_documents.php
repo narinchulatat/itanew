@@ -206,50 +206,27 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 width: 100vw !important;
             }
         }
-        #documentsTable th, #documentsTable td { white-space: nowrap; word-break: break-word; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+        #documentsTable th, #documentsTable td { 
+            white-space: nowrap; 
+            word-break: break-word; 
+            max-width: 180px; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
         @media (max-width: 640px) {
-            #documentsTable th, #documentsTable td { max-width: 100px; font-size: 0.9rem; }
-            .modal-content { max-width: 98vw !important; width: 98vw !important; margin: 0 !important; padding: 0.5rem !important; }
-        }
-        .select2-container { width: 100% !important; }
-        .select2-selection { min-height: 38px !important; }
-        .select2-selection__rendered {
-            white-space: normal !important;
-            word-break: break-word !important;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            max-width: 100%;
-            display: block;
-        }
-        .select2-container .select2-dropdown {
-            max-width: 98vw !important;
-            width: 100% !important;
-            min-width: 200px;
-            word-break: break-word;
-            white-space: normal;
-            z-index: 9999 !important;
-        }
-        .select2-container .select2-results__option {
-            white-space: normal !important;
-            word-break: break-word !important;
-            max-width: 98vw;
+            #documentsTable th, #documentsTable td { 
+                max-width: 100px; 
+                font-size: 0.9rem; 
+            }
         }
         .swal2-popup { font-size: 1.1rem !important; }
-        /* --- Fix select2 dropdown overflow modal --- */
-        .select2-container .select2-dropdown {
-            max-width: 98vw !important;
-            width: 100% !important;
-            min-width: 200px;
-            word-break: break-word;
-            white-space: normal;
-            z-index: 9999 !important;
+        .close {
+            cursor: pointer;
         }
-        .select2-container .select2-results__option {
-            white-space: normal;
-            word-break: break-word;
-        }
+        
+        /* Modal responsive design */
         .modal-content {
-            max-width: 80rem !important; /* tailwind max-w-7xl */
+            max-width: 80rem !important;
             width: 100% !important;
             height: auto !important;
             border-radius: 0.75rem !important;
@@ -265,46 +242,52 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
         @media (max-width: 640px) {
             .modal-content {
                 max-width: 98vw !important;
+                width: 98vw !important;
+                margin: 0 !important;
                 padding: 0.5rem !important;
             }
         }
-        /* --- Fix select2 dropdown/category text wrap only in modal --- */
-        #addModal .select2-container {
+        
+        /* Select2 styling improvements */
+        .select2-container {
             width: 100% !important;
             max-width: 100% !important;
         }
-        #addModal .select2-selection {
+        .select2-selection {
             min-height: 38px !important;
-            max-width: 100% !important;
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 0.375rem !important;
         }
-        #addModal .select2-selection__rendered {
+        .select2-selection__rendered {
             white-space: normal !important;
             word-break: break-word !important;
             overflow-wrap: break-word !important;
+            text-overflow: ellipsis;
+            overflow: hidden;
             max-width: 100%;
             display: block;
         }
-        /* Fix select2 dropdown width and text overflow in modal */
+        
+        /* Select2 dropdown styling for modal */
         #addModal .select2-container .select2-dropdown {
             max-width: calc(100% - 2rem) !important;
-            width: auto !important;
+            width: 100% !important;
             min-width: 200px !important;
             box-sizing: border-box !important;
-            position: absolute !important;
             z-index: 99999 !important;
+            word-break: break-word;
+            white-space: normal;
         }
-
+        
         #addModal .select2-container .select2-results__option {
             max-width: 100% !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             word-break: break-word !important;
+            padding: 0.5rem !important;
         }
-
+        
         /* Ensure dropdown doesn't exceed modal boundaries */
         #addModal .select2-container .select2-dropdown {
             left: 0 !important;
@@ -312,18 +295,26 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             margin: 0 1rem !important;
         }
         
+        /* Responsive Select2 adjustments */
+        @media (max-width: 640px) {
+            #addModal .select2-container .select2-dropdown {
+                max-width: calc(100vw - 2rem) !important;
+                margin: 0 0.5rem !important;
+            }
+            #addModal .select2-container .select2-results__option {
+                font-size: 0.9rem !important;
+                padding: 0.4rem !important;
+            }
+        }
+        
         /* Ensure modal content has proper overflow handling */
         #addModal .bg-white {
             overflow: visible !important;
         }
-
+        
         /* Ensure modal itself doesn't interfere with dropdowns */
         #addModal {
             overflow: visible !important;
-        }
-        
-        .close {
-            cursor: pointer;
         }
     </style>
 </head>
@@ -420,7 +411,7 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="form-group">
                     <label for="category_id">หมวดหมู่หลัก:</label>
                     <select class="border rounded px-3 py-2 w-full select2" id="category_id" name="category_id" onchange="loadSubcategories(this.value)" required>
-                        <option value="">-- เลือกหมวดหมู่หลัก --</option>
+                        <option value="">เลือกหมวดหมู่หลัก</option>
                         <?php foreach ($categories as $category): ?>
                             <option value="<?= $category['id'] ?>"><?= htmlspecialchars($category['name']) ?></option>
                         <?php endforeach; ?>
@@ -429,7 +420,7 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="form-group">
                     <label for="subcategory_id">หมวดหมู่ย่อย:</label>
                     <select class="border rounded px-3 py-2 w-full select2" id="subcategory_id" name="subcategory_id" required>
-                        <option value="">-- เลือกหมวดหมู่ย่อย --</option>
+                        <option value="">เลือกหมวดหมู่ย่อย</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -446,6 +437,7 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="form-group">
                     <label for="access_rights">สิทธิ์การเข้าถึง:</label>
                     <select class="border rounded px-3 py-2 w-full select2" id="access_rights" name="access_rights">
+                        <option value="">เลือกสิทธิ์การเข้าถึง</option>
                         <option value="public">Public</option>
                         <option value="private">Private</option>
                     </select>
@@ -488,36 +480,84 @@ $(document).ready(function() {
             $('.dataTables_wrapper .dataTables_filter').addClass('float-right');
         }
     });
-    // Select2
+    // Select2 configuration
     $('.select2').select2({
-        dropdownAutoWidth: true,
         width: '100%',
         minimumResultsForSearch: 10,
-        // Fix select2 in modal
-        dropdownParent: $('#addModal')
+        placeholder: 'เลือกตัวเลือก',
+        allowClear: true,
+        dropdownParent: $('#addModal'),
+        escapeMarkup: function(markup) { return markup; },
+        templateResult: function(option) {
+            if (!option.id) { return option.text; }
+            var $option = $('<span>').text(option.text);
+            return $option;
+        },
+        templateSelection: function(option) {
+            if (!option.id) { return option.text; }
+            var $option = $('<span>').text(option.text);
+            return $option;
+        }
     });
     // Modal
     window.openModal = function() {
         $('#addModal').removeClass('hidden');
-        // Refresh select2 dropdowns
+        // Refresh select2 dropdowns with consistent configuration
         setTimeout(function(){
-            $('#category_id').select2('destroy').select2({
-                dropdownAutoWidth: true,
+            $('.select2').select2('destroy');
+            $('#category_id').select2({
                 width: '100%',
                 minimumResultsForSearch: 10,
-                dropdownParent: $('#addModal')
+                placeholder: 'เลือกหมวดหมู่หลัก',
+                allowClear: true,
+                dropdownParent: $('#addModal'),
+                escapeMarkup: function(markup) { return markup; },
+                templateResult: function(option) {
+                    if (!option.id) { return option.text; }
+                    var $option = $('<span>').text(option.text);
+                    return $option;
+                },
+                templateSelection: function(option) {
+                    if (!option.id) { return option.text; }
+                    var $option = $('<span>').text(option.text);
+                    return $option;
+                }
             });
-            $('#subcategory_id').select2('destroy').select2({
-                dropdownAutoWidth: true,
+            $('#subcategory_id').select2({
                 width: '100%',
                 minimumResultsForSearch: 10,
-                dropdownParent: $('#addModal')
+                placeholder: 'เลือกหมวดหมู่ย่อย',
+                allowClear: true,
+                dropdownParent: $('#addModal'),
+                escapeMarkup: function(markup) { return markup; },
+                templateResult: function(option) {
+                    if (!option.id) { return option.text; }
+                    var $option = $('<span>').text(option.text);
+                    return $option;
+                },
+                templateSelection: function(option) {
+                    if (!option.id) { return option.text; }
+                    var $option = $('<span>').text(option.text);
+                    return $option;
+                }
             });
-            $('#access_rights').select2('destroy').select2({
-                dropdownAutoWidth: true,
+            $('#access_rights').select2({
                 width: '100%',
                 minimumResultsForSearch: 10,
-                dropdownParent: $('#addModal')
+                placeholder: 'เลือกสิทธิ์การเข้าถึง',
+                allowClear: true,
+                dropdownParent: $('#addModal'),
+                escapeMarkup: function(markup) { return markup; },
+                templateResult: function(option) {
+                    if (!option.id) { return option.text; }
+                    var $option = $('<span>').text(option.text);
+                    return $option;
+                },
+                templateSelection: function(option) {
+                    if (!option.id) { return option.text; }
+                    var $option = $('<span>').text(option.text);
+                    return $option;
+                }
             });
         }, 100);
     }
@@ -605,15 +645,26 @@ $(document).ready(function() {
         $('#title').val('');
         $('#content').val('');
         $('#category_id').val('').trigger('change');
-        $('#subcategory_id').html('<option value="">-- เลือกหมวดหมู่ย่อย --</option>').val('').trigger('change');
+        $('#subcategory_id').html('<option value="">เลือกหมวดหมู่ย่อย</option>').val('').trigger('change');
         $('#file_upload').val('');
-        $('#access_rights').val('public').trigger('change');
+        $('#access_rights').val('').trigger('change');
         $('#old_file').remove();
+        $('#fileName').text('เลือกไฟล์...');
     }
+    
+    // File upload handler
+    $('#file_upload').on('change', function() {
+        var fileName = $(this).val().split('\\').pop();
+        if (fileName) {
+            $('#fileName').text(fileName);
+        } else {
+            $('#fileName').text('เลือกไฟล์...');
+        }
+    });
 });
 var subcategories = <?php echo json_encode($subcategories); ?>;
 function loadSubcategories(category_id) {
-    var options = '<option value="">-- เลือกหมวดหมู่ย่อย --</option>';
+    var options = '<option value="">เลือกหมวดหมู่ย่อย</option>';
     subcategories.forEach(function(subcat) {
         if (subcat.category_id == category_id) {
             options += '<option value="' + subcat.id + '">' + subcat.name + '</option>';
