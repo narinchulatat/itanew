@@ -305,6 +305,17 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             overflow-wrap: break-word !important;
             max-width: 100%;
         }
+        
+        /* Ensure modal content has proper overflow handling */
+        #addModal .bg-white {
+            overflow: visible !important;
+        }
+
+        /* Ensure modal itself doesn't interfere with dropdowns */
+        #addModal {
+            overflow: visible !important;
+        }
+        
         .close {
             cursor: pointer;
         }
