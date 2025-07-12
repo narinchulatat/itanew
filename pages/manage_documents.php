@@ -169,10 +169,8 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <meta charset="UTF-8">
     <title>จัดการเอกสาร</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.tailwindcss.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.tailwindcss.min.js"></script>
@@ -248,62 +246,105 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
         }
         
-        /* Select2 styling improvements */
-        .select2-container {
-            width: 100% !important;
-            max-width: 100% !important;
-        }
-        .select2-selection {
-            min-height: 38px !important;
-            border: 1px solid #d1d5db !important;
-            border-radius: 0.375rem !important;
-        }
-        .select2-selection__rendered {
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            max-width: 100%;
-            display: block;
+        /* Custom Tailwind Dropdown Styles */
+        .custom-dropdown {
+            position: relative;
         }
         
-        /* Select2 dropdown styling for modal */
-        #addModal .select2-container .select2-dropdown {
-            max-width: calc(100% - 2rem) !important;
-            width: 100% !important;
-            min-width: 200px !important;
-            box-sizing: border-box !important;
-            z-index: 99999 !important;
-            word-break: break-word;
+        .dropdown-button {
+            width: 100%;
+            min-height: 38px;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            background-color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        
+        .dropdown-button:hover {
+            border-color: #9ca3af;
+        }
+        
+        .dropdown-button:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .dropdown-content {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 0.25rem;
+        }
+        
+        .dropdown-option {
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            word-wrap: break-word;
             white-space: normal;
         }
         
-        #addModal .select2-container .select2-results__option {
-            max-width: 100% !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            word-break: break-word !important;
-            padding: 0.5rem !important;
+        .dropdown-option:hover {
+            background-color: #f3f4f6;
         }
         
-        /* Ensure dropdown doesn't exceed modal boundaries */
-        #addModal .select2-container .select2-dropdown {
-            left: 0 !important;
-            right: 0 !important;
-            margin: 0 1rem !important;
+        .dropdown-option:last-child {
+            border-bottom: none;
         }
         
-        /* Responsive Select2 adjustments */
+        .dropdown-option.selected {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+        
+        .dropdown-search {
+            padding: 0.5rem 0.75rem;
+            border: none;
+            border-bottom: 1px solid #e5e7eb;
+            width: 100%;
+            font-size: 0.875rem;
+        }
+        
+        .dropdown-search:focus {
+            outline: none;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .dropdown-arrow {
+            transition: transform 0.2s;
+        }
+        
+        .dropdown-arrow.rotated {
+            transform: rotate(180deg);
+        }
+        
+        /* Modal context adjustments */
+        #addModal .custom-dropdown .dropdown-content {
+            z-index: 99999;
+        }
+        
+        /* Responsive adjustments */
         @media (max-width: 640px) {
-            #addModal .select2-container .select2-dropdown {
-                max-width: calc(100vw - 2rem) !important;
-                margin: 0 0.5rem !important;
+            .dropdown-content {
+                max-height: 150px;
             }
-            #addModal .select2-container .select2-results__option {
-                font-size: 0.9rem !important;
-                padding: 0.4rem !important;
+            .dropdown-option {
+                font-size: 0.9rem;
+                padding: 0.4rem 0.6rem;
             }
         }
         
@@ -410,18 +451,38 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
                 <div class="form-group">
                     <label for="category_id">หมวดหมู่หลัก:</label>
-                    <select class="border rounded px-3 py-2 w-full select2" id="category_id" name="category_id" onchange="loadSubcategories(this.value)" required>
-                        <option value="">เลือกหมวดหมู่หลัก</option>
-                        <?php foreach ($categories as $category): ?>
-                            <option value="<?= $category['id'] ?>"><?= htmlspecialchars($category['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="custom-dropdown" id="category_dropdown">
+                        <div class="dropdown-button" onclick="toggleDropdown('category_dropdown')">
+                            <span id="category_selected">เลือกหมวดหมู่หลัก</span>
+                            <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                        <div class="dropdown-content hidden">
+                            <input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่..." onkeyup="filterDropdown('category_dropdown', this.value)">
+                            <div class="dropdown-option" data-value="" onclick="selectOption('category_dropdown', '', 'เลือกหมวดหมู่หลัก')">เลือกหมวดหมู่หลัก</div>
+                            <?php foreach ($categories as $category): ?>
+                                <div class="dropdown-option" data-value="<?= $category['id'] ?>" onclick="selectCategory('<?= $category['id'] ?>', '<?= htmlspecialchars($category['name']) ?>')"><?= htmlspecialchars($category['name']) ?></div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <input type="hidden" id="category_id" name="category_id" required>
                 </div>
                 <div class="form-group">
                     <label for="subcategory_id">หมวดหมู่ย่อย:</label>
-                    <select class="border rounded px-3 py-2 w-full select2" id="subcategory_id" name="subcategory_id" required>
-                        <option value="">เลือกหมวดหมู่ย่อย</option>
-                    </select>
+                    <div class="custom-dropdown" id="subcategory_dropdown">
+                        <div class="dropdown-button" onclick="toggleDropdown('subcategory_dropdown')">
+                            <span id="subcategory_selected">เลือกหมวดหมู่ย่อย</span>
+                            <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                        <div class="dropdown-content hidden">
+                            <input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown('subcategory_dropdown', this.value)">
+                            <div class="dropdown-option" data-value="" onclick="selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย')">เลือกหมวดหมู่ย่อย</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="subcategory_id" name="subcategory_id" required>
                 </div>
                 <div class="form-group">
                     <label for="file_upload">เอกสารประกอบ:</label>
@@ -436,11 +497,20 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
                 <div class="form-group">
                     <label for="access_rights">สิทธิ์การเข้าถึง:</label>
-                    <select class="border rounded px-3 py-2 w-full select2" id="access_rights" name="access_rights">
-                        <option value="">เลือกสิทธิ์การเข้าถึง</option>
-                        <option value="public">Public</option>
-                        <option value="private">Private</option>
-                    </select>
+                    <div class="custom-dropdown" id="access_rights_dropdown">
+                        <div class="dropdown-button" onclick="toggleDropdown('access_rights_dropdown')">
+                            <span id="access_rights_selected">เลือกสิทธิ์การเข้าถึง</span>
+                            <svg class="dropdown-arrow w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                        <div class="dropdown-content hidden">
+                            <div class="dropdown-option" data-value="" onclick="selectOption('access_rights_dropdown', '', 'เลือกสิทธิ์การเข้าถึง')">เลือกสิทธิ์การเข้าถึง</div>
+                            <div class="dropdown-option" data-value="public" onclick="selectOption('access_rights_dropdown', 'public', 'Public')">Public</div>
+                            <div class="dropdown-option" data-value="private" onclick="selectOption('access_rights_dropdown', 'private', 'Private')">Private</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="access_rights" name="access_rights">
                 </div>
                 <button type="submit" id="submitBtn" name="add_document" class="bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700 w-full">บันทึก</button>
             </form>
@@ -480,91 +550,94 @@ $(document).ready(function() {
             $('.dataTables_wrapper .dataTables_filter').addClass('float-right');
         }
     });
-    // Select2 configuration
-    $('.select2').select2({
-        width: '100%',
-        minimumResultsForSearch: 10,
-        placeholder: 'เลือกตัวเลือก',
-        allowClear: true,
-        dropdownParent: $('#addModal'),
-        escapeMarkup: function(markup) { return markup; },
-        templateResult: function(option) {
-            if (!option.id) { return option.text; }
-            var $option = $('<span>').text(option.text);
-            return $option;
-        },
-        templateSelection: function(option) {
-            if (!option.id) { return option.text; }
-            var $option = $('<span>').text(option.text);
-            return $option;
+
+    // Custom Dropdown Functions
+    window.toggleDropdown = function(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        const content = dropdown.querySelector('.dropdown-content');
+        const arrow = dropdown.querySelector('.dropdown-arrow');
+        
+        // Close all other dropdowns
+        document.querySelectorAll('.custom-dropdown .dropdown-content').forEach(function(otherContent) {
+            if (otherContent !== content) {
+                otherContent.classList.add('hidden');
+                otherContent.parentElement.querySelector('.dropdown-arrow').classList.remove('rotated');
+            }
+        });
+        
+        // Toggle current dropdown
+        content.classList.toggle('hidden');
+        arrow.classList.toggle('rotated');
+        
+        // Clear search when opening
+        if (!content.classList.contains('hidden')) {
+            const searchInput = content.querySelector('.dropdown-search');
+            if (searchInput) {
+                searchInput.value = '';
+                filterDropdown(dropdownId, '');
+                searchInput.focus();
+            }
+        }
+    };
+
+    window.selectOption = function(dropdownId, value, text) {
+        const dropdown = document.getElementById(dropdownId);
+        const selectedSpan = dropdown.querySelector('span[id$="_selected"]');
+        const hiddenInput = dropdown.parentElement.querySelector('input[type="hidden"]');
+        const content = dropdown.querySelector('.dropdown-content');
+        const arrow = dropdown.querySelector('.dropdown-arrow');
+        
+        // Update display
+        selectedSpan.textContent = text;
+        hiddenInput.value = value;
+        
+        // Update selected state
+        dropdown.querySelectorAll('.dropdown-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        dropdown.querySelector(`[data-value="${value}"]`).classList.add('selected');
+        
+        // Close dropdown
+        content.classList.add('hidden');
+        arrow.classList.remove('rotated');
+    };
+
+    window.selectCategory = function(categoryId, categoryName) {
+        selectOption('category_dropdown', categoryId, categoryName);
+        loadSubcategories(categoryId);
+    };
+
+    window.filterDropdown = function(dropdownId, searchTerm) {
+        const dropdown = document.getElementById(dropdownId);
+        const options = dropdown.querySelectorAll('.dropdown-option');
+        
+        options.forEach(option => {
+            const text = option.textContent.toLowerCase();
+            const matches = text.includes(searchTerm.toLowerCase());
+            option.style.display = matches ? 'block' : 'none';
+        });
+    };
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.custom-dropdown')) {
+            document.querySelectorAll('.custom-dropdown .dropdown-content').forEach(content => {
+                content.classList.add('hidden');
+                content.parentElement.querySelector('.dropdown-arrow').classList.remove('rotated');
+            });
         }
     });
-    // Modal
+
+    // Modal functions
     window.openModal = function() {
         $('#addModal').removeClass('hidden');
-        // Refresh select2 dropdowns with consistent configuration
-        setTimeout(function(){
-            $('.select2').select2('destroy');
-            $('#category_id').select2({
-                width: '100%',
-                minimumResultsForSearch: 10,
-                placeholder: 'เลือกหมวดหมู่หลัก',
-                allowClear: true,
-                dropdownParent: $('#addModal'),
-                escapeMarkup: function(markup) { return markup; },
-                templateResult: function(option) {
-                    if (!option.id) { return option.text; }
-                    var $option = $('<span>').text(option.text);
-                    return $option;
-                },
-                templateSelection: function(option) {
-                    if (!option.id) { return option.text; }
-                    var $option = $('<span>').text(option.text);
-                    return $option;
-                }
-            });
-            $('#subcategory_id').select2({
-                width: '100%',
-                minimumResultsForSearch: 10,
-                placeholder: 'เลือกหมวดหมู่ย่อย',
-                allowClear: true,
-                dropdownParent: $('#addModal'),
-                escapeMarkup: function(markup) { return markup; },
-                templateResult: function(option) {
-                    if (!option.id) { return option.text; }
-                    var $option = $('<span>').text(option.text);
-                    return $option;
-                },
-                templateSelection: function(option) {
-                    if (!option.id) { return option.text; }
-                    var $option = $('<span>').text(option.text);
-                    return $option;
-                }
-            });
-            $('#access_rights').select2({
-                width: '100%',
-                minimumResultsForSearch: 10,
-                placeholder: 'เลือกสิทธิ์การเข้าถึง',
-                allowClear: true,
-                dropdownParent: $('#addModal'),
-                escapeMarkup: function(markup) { return markup; },
-                templateResult: function(option) {
-                    if (!option.id) { return option.text; }
-                    var $option = $('<span>').text(option.text);
-                    return $option;
-                },
-                templateSelection: function(option) {
-                    if (!option.id) { return option.text; }
-                    var $option = $('<span>').text(option.text);
-                    return $option;
-                }
-            });
-        }, 100);
-    }
+    };
+
     window.closeModal = function() {
         $('#addModal').addClass('hidden');
         clearForm();
-    }
+    };
+
     // Edit document
     $('.edit-btn').on('click', function() {
         var row = $(this).closest('tr');
@@ -585,18 +658,25 @@ $(document).ready(function() {
         var subcategory_id = row.data('subcategory_id');
         var access_rights = row.data('access_rights');
         var file_name = row.data('file_name');
+        
         $('#id').val(id);
         $('#title').val(title);
         $('#content').val(content);
-        $('#category_id').val(category_id).trigger('change');
-        // โหลด subcategory ก่อน set ค่า
-        $.get('get_subcategories.php?category_id=' + category_id, function(data) {
-            $('#subcategory_id').html(data);
-            $('#subcategory_id').val(subcategory_id).trigger('change');
+        
+        // Set category
+        setDropdownValue('category_dropdown', category_id);
+        
+        // Load and set subcategory
+        loadSubcategories(category_id, function() {
+            setDropdownValue('subcategory_dropdown', subcategory_id);
         });
-        $('#file_upload').val(''); // reset file input
-        $('#access_rights').val(access_rights).trigger('change');
-        // แสดงไฟล์เดิมถ้ามี
+        
+        // Set access rights
+        setDropdownValue('access_rights_dropdown', access_rights);
+        
+        $('#file_upload').val('');
+        
+        // Show existing file if any
         if (file_name) {
             if ($('#old_file').length === 0) {
                 $('<div id="old_file" class="mb-2 text-sm text-gray-600">ไฟล์เดิม: <a href="uploads/' + file_name + '" target="_blank" class="text-blue-600 underline">' + file_name + '</a></div>').insertBefore('#file_upload');
@@ -606,8 +686,20 @@ $(document).ready(function() {
         } else {
             $('#old_file').remove();
         }
+        
         openModal();
     });
+
+    // Helper function to set dropdown value
+    window.setDropdownValue = function(dropdownId, value) {
+        const dropdown = document.getElementById(dropdownId);
+        const option = dropdown.querySelector(`[data-value="${value}"]`);
+        if (option) {
+            const text = option.textContent;
+            selectOption(dropdownId, value, text);
+        }
+    };
+
     // SweetAlert2 for delete confirmation
     window.confirmDelete = function(documentId) {
         Swal.fire({
@@ -638,19 +730,27 @@ $(document).ready(function() {
                 form.submit();
             }
         });
-    }
+    };
+
     // Reset form
     window.clearForm = function() {
         $('#id').val('');
         $('#title').val('');
         $('#content').val('');
-        $('#category_id').val('').trigger('change');
-        $('#subcategory_id').html('<option value="">เลือกหมวดหมู่ย่อย</option>').val('').trigger('change');
+        
+        // Reset dropdowns
+        selectOption('category_dropdown', '', 'เลือกหมวดหมู่หลัก');
+        selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย');
+        selectOption('access_rights_dropdown', '', 'เลือกสิทธิ์การเข้าถึง');
+        
+        // Clear subcategory options
+        const subcategoryContent = document.getElementById('subcategory_dropdown').querySelector('.dropdown-content');
+        subcategoryContent.innerHTML = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)"><div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่ย่อย</div>';
+        
         $('#file_upload').val('');
-        $('#access_rights').val('').trigger('change');
         $('#old_file').remove();
         $('#fileName').text('เลือกไฟล์...');
-    }
+    };
     
     // File upload handler
     $('#file_upload').on('change', function() {
@@ -663,19 +763,33 @@ $(document).ready(function() {
     });
 });
 var subcategories = <?php echo json_encode($subcategories); ?>;
-function loadSubcategories(category_id) {
-    var options = '<option value="">เลือกหมวดหมู่ย่อย</option>';
+
+function loadSubcategories(category_id, callback) {
+    const subcategoryContent = document.getElementById('subcategory_dropdown').querySelector('.dropdown-content');
+    let options = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)">';
+    options += '<div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่ย่อย</div>';
+    
     subcategories.forEach(function(subcat) {
         if (subcat.category_id == category_id) {
-            options += '<option value="' + subcat.id + '">' + subcat.name + '</option>';
+            options += '<div class="dropdown-option" data-value="' + subcat.id + '" onclick="selectOption(\'subcategory_dropdown\', \'' + subcat.id + '\', \'' + subcat.name.replace(/'/g, '&#39;') + '\')">' + subcat.name + '</div>';
         }
     });
-    $('#subcategory_id').html(options).trigger('change');
+    
+    subcategoryContent.innerHTML = options;
+    
+    // Reset subcategory selection
+    selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย');
+    
+    if (callback) {
+        callback();
+    }
 }
+
 $('#category_id').on('change', function() {
     var category_id = $(this).val();
     loadSubcategories(category_id);
 });
+
 $('.edit-btn').on('click', function() {
     if ($(this).is(':disabled')) return;
     var row = $(this).closest('tr');
@@ -686,17 +800,21 @@ $('.edit-btn').on('click', function() {
     var subcategory_id = row.data('subcategory_id');
     var access_rights = row.data('access_rights');
     var file_name = row.data('file_name');
+    
     $('#id').val(id);
     $('#title').val(title);
     $('#content').val(content);
-    $('#category_id').val(category_id).trigger('change');
-    loadSubcategories(category_id);
-    setTimeout(function(){
-        $('#subcategory_id').val(subcategory_id).trigger('change');
-    }, 100);
-    $('#file_upload').val(''); // reset file input
-    $('#access_rights').val(access_rights).trigger('change');
-    // แสดงไฟล์เดิมถ้ามี
+    
+    // Set category and load subcategories
+    setDropdownValue('category_dropdown', category_id);
+    loadSubcategories(category_id, function() {
+        setDropdownValue('subcategory_dropdown', subcategory_id);
+    });
+    
+    $('#file_upload').val('');
+    setDropdownValue('access_rights_dropdown', access_rights);
+    
+    // Show existing file if any
     if (file_name) {
         if ($('#old_file').length === 0) {
             $('<div id="old_file" class="mb-2 text-sm text-gray-600">ไฟล์เดิม: <a href="uploads/' + file_name + '" target="_blank" class="text-blue-600 underline">' + file_name + '</a></div>').insertBefore('#file_upload');
@@ -706,6 +824,7 @@ $('.edit-btn').on('click', function() {
     } else {
         $('#old_file').remove();
     }
+    
     openModal();
 });
 </script>
