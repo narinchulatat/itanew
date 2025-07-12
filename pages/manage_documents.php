@@ -288,12 +288,70 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             display: block;
         }
         #addModal .select2-container .select2-dropdown {
-            position: absolute !important;
+            position: fixed !important;
             left: 0 !important;
-            right: 0 !important;
-            max-width: 100% !important;
-            width: 100% !important;
+            top: 0 !important;
+            width: auto !important;
             min-width: 200px;
+            max-width: 100vw !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            white-space: normal !important;
+            z-index: 99999 !important;
+            box-sizing: border-box !important;
+        }
+        #addModal .select2-container .select2-results__option {
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            max-width: 100%;
+            box-sizing: border-box !important;
+        }
+        #addModal .select2-selection__rendered {
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            max-width: 100%;
+            display: block;
+        }
+        .close {
+            cursor: pointer;
+        }
+    </style>
+    <script>
+    // --- Fix select2 dropdown overflow modal ---
+    $(document).ready(function() {
+        function fixSelect2Dropdown() {
+            // ปรับขนาด dropdown ให้ไม่ล้น modal
+            var $modal = $('#addModal .modal-content');
+            var $dropdown = $('.select2-container .select2-dropdown');
+            if ($dropdown.length && $modal.length) {
+                var modalOffset = $modal.offset();
+                var modalWidth = $modal.outerWidth();
+                $dropdown.css({
+                    'position': 'fixed',
+                    'left': modalOffset.left + 16, // padding modal
+                    'top': $dropdown.offset().top,
+                    'width': modalWidth - 32, // padding modal
+                    'max-width': modalWidth - 32,
+                    'z-index': 99999
+                });
+            }
+        }
+        $(document).on('select2:open', function() {
+            setTimeout(fixSelect2Dropdown, 50);
+        });
+    });
+    </script>
+    <style>
+        /* เพิ่มเติม: บังคับ select2 dropdown ใน modal ให้ wrap และไม่ล้น */
+        #addModal .select2-container .select2-dropdown {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: auto !important;
+            min-width: 200px;
+            max-width: 100vw !important;
             word-break: break-word !important;
             overflow-wrap: break-word !important;
             white-space: normal !important;
@@ -305,17 +363,6 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             overflow-wrap: break-word !important;
             max-width: 100%;
         }
-        
-        /* Ensure modal content has proper overflow handling */
-        #addModal .bg-white {
-            overflow: visible !important;
-        }
-
-        /* Ensure modal itself doesn't interfere with dropdowns */
-        #addModal {
-            overflow: visible !important;
-        }
-        
         .close {
             cursor: pointer;
         }
@@ -487,8 +534,49 @@ $(document).ready(function() {
         dropdownAutoWidth: true,
         width: '100%',
         minimumResultsForSearch: 10,
-        // Fix select2 in modal
         dropdownParent: $('#addModal')
+    });
+    // --- Fix select2 dropdown overflow/modal wrap ---
+    function fixSelect2Dropdown() {
+        setTimeout(function() {
+            $('#addModal .select2-container .select2-dropdown').css({
+                'max-width': $('#addModal .modal-content').width() + 'px',
+                'width': '100%',
+                'left': '0',
+                'right': '0',
+                'box-sizing': 'border-box'
+            });
+        }, 150);
+    }
+    $('#addModal').on('shown.bs.modal', fixSelect2Dropdown);
+    $('#addModal').on('resize', fixSelect2Dropdown);
+    // Also call after openModal
+    window.openModal = function() {
+        $('#addModal').removeClass('hidden');
+        setTimeout(function(){
+            $('#category_id').select2('destroy').select2({
+                dropdownAutoWidth: true,
+                width: '100%',
+                minimumResultsForSearch: 10,
+                dropdownParent: $('#addModal')
+            });
+            $('#subcategory_id').select2('destroy').select2({
+                dropdownAutoWidth: true,
+                width: '100%',
+                minimumResultsForSearch: 10,
+                dropdownParent: $('#addModal')
+            });
+            $('#access_rights').select2('destroy').select2({
+                dropdownAutoWidth: true,
+                width: '100%',
+                minimumResultsForSearch: 10,
+                dropdownParent: $('#addModal')
+            });
+            fixSelect2Dropdown();
+        }, 100);
+    }
+    $(window).on('resize', function(){
+        if (!$('#addModal').hasClass('hidden')) fixSelect2Dropdown();
     });
     // Modal
     window.openModal = function() {
