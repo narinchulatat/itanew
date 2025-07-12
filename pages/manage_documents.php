@@ -268,15 +268,16 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             display: block;
         }
         
-        /* Select2 dropdown styling for modal */
+        /* Select2 dropdown styling for modal - Enhanced overflow prevention */
         #addModal .select2-container .select2-dropdown {
-            max-width: calc(100% - 2rem) !important;
-            width: 100% !important;
+            max-width: calc(100% - 4rem) !important;
+            width: calc(100% - 4rem) !important;
             min-width: 200px !important;
             box-sizing: border-box !important;
             z-index: 99999 !important;
             word-break: break-word;
             white-space: normal;
+            position: absolute !important;
         }
         
         #addModal .select2-container .select2-results__option {
@@ -286,20 +287,33 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             text-overflow: ellipsis !important;
             word-break: break-word !important;
             padding: 0.5rem !important;
+            box-sizing: border-box !important;
         }
         
-        /* Ensure dropdown doesn't exceed modal boundaries */
-        #addModal .select2-container .select2-dropdown {
-            left: 0 !important;
-            right: 0 !important;
-            margin: 0 1rem !important;
+        /* Ensure dropdown doesn't exceed modal boundaries - improved positioning */
+        #addModal .select2-container--open .select2-dropdown {
+            left: 2rem !important;
+            right: 2rem !important;
+            margin: 0 !important;
+            transform: none !important;
+        }
+        
+        /* Additional constraint for dropdown container positioning */
+        #addModal .select2-container--open .select2-dropdown--below {
+            border-top: none !important;
+        }
+        
+        #addModal .select2-container--open .select2-dropdown--above {
+            border-bottom: none !important;
         }
         
         /* Responsive Select2 adjustments */
         @media (max-width: 640px) {
             #addModal .select2-container .select2-dropdown {
-                max-width: calc(100vw - 2rem) !important;
-                margin: 0 0.5rem !important;
+                max-width: calc(100vw - 3rem) !important;
+                width: calc(100vw - 3rem) !important;
+                left: 1.5rem !important;
+                right: 1.5rem !important;
             }
             #addModal .select2-container .select2-results__option {
                 font-size: 0.9rem !important;
@@ -310,10 +324,17 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
         /* Ensure modal content has proper overflow handling */
         #addModal .bg-white {
             overflow: visible !important;
+            position: relative !important;
         }
         
         /* Ensure modal itself doesn't interfere with dropdowns */
         #addModal {
+            overflow: visible !important;
+        }
+        
+        /* Additional safeguards for modal positioning */
+        #addModal .modal-content {
+            position: relative !important;
             overflow: visible !important;
         }
     </style>
