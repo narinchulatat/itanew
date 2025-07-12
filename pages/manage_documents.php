@@ -1,6 +1,12 @@
 <?php
 session_start();
-include('./db.php');
+include('../db_sqlite.php');
+
+// Mock session for testing
+if (!isset($_SESSION['user_id'])) {
+    $_SESSION['user_id'] = 1;
+    $_SESSION['role_id'] = 1;
+}
 
 // Check if the user is logged in
 if (!isset($_SESSION['user_id'])) {
