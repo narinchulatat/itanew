@@ -176,12 +176,39 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <title>จัดการเอกสาร</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
+    <link rel="stylesheet" href="../assets/css/select2-modal-fix.css" />
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.tailwindcss.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.tailwindcss.min.js"></script>
+    <!-- Fallback for Select2 if CDN fails -->
+    <script>
+        // Check if Select2 loaded, if not provide a minimal fallback
+        $(document).ready(function() {
+            if (typeof $.fn.select2 === 'undefined') {
+                // Create a minimal Select2 fallback
+                $.fn.select2 = function(options) {
+                    return this.each(function() {
+                        $(this).addClass('select2-fallback');
+                    });
+                };
+                
+                // Add fallback CSS
+                $('<style>').text(`
+                    .select2-fallback {
+                        width: 100% !important;
+                        min-height: 38px !important;
+                        border: 1px solid #d1d5db !important;
+                        border-radius: 0.375rem !important;
+                        padding: 8px 12px !important;
+                        box-sizing: border-box !important;
+                    }
+                `).appendTo('head');
+            }
+        });
+    </script>
     <style>
         body { background: #f6f8fa; }
         .container {
@@ -217,100 +244,139 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             #documentsTable th, #documentsTable td { max-width: 100px; font-size: 0.9rem; }
             .modal-content { max-width: 98vw !important; width: 98vw !important; margin: 0 !important; padding: 0.5rem !important; }
         }
-        .select2-container { width: 100% !important; }
-        .select2-selection { min-height: 38px !important; }
-        .select2-selection__rendered {
-            white-space: normal !important;
-            word-break: break-word !important;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            max-width: 100%;
-            display: block;
-        }
-        .select2-container .select2-dropdown {
-            max-width: 98vw !important;
-            width: 100% !important;
-            min-width: 200px;
-            word-break: break-word;
-            white-space: normal;
+        
+        /* Modal backdrop and positioning */
+        .modal-backdrop {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
             z-index: 9999 !important;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* CRITICAL: Ensure modal contains Select2 dropdowns */
+            overflow: hidden !important;
         }
-        .select2-container .select2-results__option {
-            white-space: normal !important;
-            word-break: break-word !important;
-            max-width: 98vw;
+        
+        .modal-backdrop.hidden {
+            display: none !important;
         }
-        .swal2-popup { font-size: 1.1rem !important; }
-        /* --- Fix select2 dropdown overflow modal --- */
-        .select2-container .select2-dropdown {
-            max-width: 98vw !important;
-            width: 100% !important;
-            min-width: 200px;
-            word-break: break-word;
-            white-space: normal;
-            z-index: 9999 !important;
+        
+        #addModal {
+            /* Remove previous styles as they're now on .modal-backdrop */
         }
-        .select2-container .select2-results__option {
-            white-space: normal;
-            word-break: break-word;
-        }
+        
+        /* Modal content container */
         .modal-content {
-            max-width: 80rem !important; /* tailwind max-w-7xl */
-            width: 100% !important;
-            height: auto !important;
+            position: relative !important;
+            z-index: 10000 !important;
+            max-width: 80rem !important;
+            width: 90% !important;
+            max-height: 85vh !important;
+            background: white;
             border-radius: 0.75rem !important;
             padding: 2rem !important;
-            overflow-y: auto !important;
+            overflow: visible !important;
             box-sizing: border-box;
+            /* Create a new stacking context and containing block */
+            transform: translateZ(0) !important;
+            contain: layout style !important;
+            /* Ensure proper positioning context for Select2 */
+            isolation: isolate !important;
         }
+        
         @media (max-width: 1280px) {
             .modal-content {
-                max-width: 98vw !important;
+                max-width: 95vw !important;
+                width: 95% !important;
             }
         }
         @media (max-width: 640px) {
             .modal-content {
                 max-width: 98vw !important;
-                padding: 0.5rem !important;
+                width: 98% !important;
+                padding: 1rem !important;
             }
         }
-        /* --- Fix select2 dropdown/category text wrap only in modal --- */
-        #addModal .select2-container {
+        
+        /* Select2 global fixes */
+        .select2-container {
             width: 100% !important;
-            max-width: 100% !important;
+            z-index: 10001 !important;
+            position: relative !important;
         }
-        #addModal .select2-selection {
+        
+        .select2-selection {
             min-height: 38px !important;
-            max-width: 100% !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 0.375rem !important;
+        }
+        
+        .select2-selection__rendered {
             white-space: normal !important;
             word-break: break-word !important;
             overflow-wrap: break-word !important;
+            padding: 8px 12px !important;
+            line-height: 1.4 !important;
         }
-        #addModal .select2-selection__rendered {
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
-            max-width: 100%;
-            display: block;
+        
+        /* CRITICAL FIX: Select2 dropdown positioning for modal */
+        .select2-dropdown {
+            z-index: 10002 !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 0.375rem !important;
+            background: white !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+            /* Force dropdown to be positioned relative to modal content */
+            position: absolute !important;
+            max-width: calc(100% - 2rem) !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
         }
+        
+        /* Force all Select2 dropdowns in modal to be contained */
         #addModal .select2-container .select2-dropdown {
             position: absolute !important;
             left: 0 !important;
             right: 0 !important;
             max-width: 100% !important;
             width: 100% !important;
-            min-width: 200px;
+            max-height: 150px !important;
+            overflow-y: auto !important;
+            z-index: 10002 !important;
+            /* Clip to parent container */
+            contain: strict !important;
+        }
+        
+        /* Additional containment for modal form area */
+        #addModal form {
+            position: relative !important;
+            overflow: visible !important;
+        }
+        
+        #addModal .form-group {
+            position: relative !important;
+            overflow: visible !important;
+        }
+        
+        /* Ensure dropdown options wrap text properly */
+        .select2-results__option {
+            white-space: normal !important;
             word-break: break-word !important;
             overflow-wrap: break-word !important;
-            white-space: normal !important;
-            z-index: 99999 !important;
+            padding: 8px 12px !important;
+            line-height: 1.4 !important;
         }
-        #addModal .select2-container .select2-results__option {
-            white-space: normal !important;
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
-            max-width: 100%;
+        
+        .select2-results__option--highlighted {
+            background-color: #3b82f6 !important;
+            color: white !important;
         }
+        
+        .swal2-popup { font-size: 1.1rem !important; }
         .close {
             cursor: pointer;
         }
@@ -390,8 +456,8 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
     <!-- Modal -->
-    <div id="addModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
-        <div class="modal-content bg-white rounded-lg shadow-lg w-full max-w-7xl mx-auto p-6"> <!-- ใช้ max-w-7xl ของ tailwindcss -->
+    <div id="addModal" class="modal-backdrop hidden">
+        <div class="modal-content bg-white rounded-lg shadow-lg relative">
             <div class="flex justify-between items-center border-b pb-4 mb-4">
                 <h4 class="text-lg font-bold" id="modalTitle">เพิ่ม/แก้ไขเอกสาร</h4>
                 <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl close" onclick="closeModal()">&times;</button>
@@ -477,40 +543,148 @@ $(document).ready(function() {
             $('.dataTables_wrapper .dataTables_filter').addClass('float-right');
         }
     });
-    // Select2
-    $('.select2').select2({
-        dropdownAutoWidth: true,
-        width: '100%',
-        minimumResultsForSearch: 10,
-        // Fix select2 in modal
-        dropdownParent: $('#addModal')
-    });
-    // Modal
+    
+    // Function to initialize Select2 with proper modal settings
+    function initializeSelect2() {
+        // Check if Select2 is available
+        if (typeof $.fn.select2 === 'undefined') {
+            console.log('Select2 not available, using fallback');
+            return;
+        }
+        
+        // Destroy existing Select2 instances first
+        $('.select2').select2('destroy');
+        
+        // Initialize Select2 with modal-specific settings
+        $('.select2').select2({
+            width: '100%',
+            dropdownAutoWidth: false,
+            minimumResultsForSearch: 10,
+            dropdownParent: $('#addModal .modal-content'), // Attach to modal content specifically
+            escapeMarkup: function(markup) {
+                return markup;
+            },
+            templateResult: function(data) {
+                if (!data.id) {
+                    return data.text;
+                }
+                return $('<span style="word-break: break-word; white-space: normal; line-height: 1.4;">' + data.text + '</span>');
+            },
+            templateSelection: function(data) {
+                return $('<span style="word-break: break-word; white-space: normal; line-height: 1.4;">' + data.text + '</span>');
+            },
+            // Additional options for modal containment
+            dropdownCssClass: 'modal-select2-dropdown',
+            dropdownPosition: 'below',
+            // Custom positioning adapter
+            dropdownAdapter: function() {
+                var originalAdapter = $.fn.select2.amd.require('select2/dropdown/attachBody');
+                function CustomDropdown() {
+                    originalAdapter.apply(this, arguments);
+                }
+                CustomDropdown.prototype = originalAdapter.prototype;
+                CustomDropdown.prototype._positionDropdown = function() {
+                    originalAdapter.prototype._positionDropdown.apply(this, arguments);
+                    // Ensure dropdown stays within modal bounds
+                    var $dropdown = this.$dropdown;
+                    var $modal = $('#addModal .modal-content');
+                    if ($modal.length) {
+                        var modalOffset = $modal.offset();
+                        var modalHeight = $modal.height();
+                        var modalBottom = modalOffset.top + modalHeight;
+                        var dropdownOffset = $dropdown.offset();
+                        var dropdownHeight = $dropdown.height();
+                        
+                        // If dropdown extends beyond modal bottom, adjust
+                        if (dropdownOffset.top + dropdownHeight > modalBottom) {
+                            $dropdown.css({
+                                'max-height': Math.max(100, modalBottom - dropdownOffset.top - 10) + 'px',
+                                'overflow-y': 'auto'
+                            });
+                        }
+                    }
+                };
+                return CustomDropdown;
+            }()
+        });
+        
+        // Additional positioning fix after initialization
+        setTimeout(function() {
+            $('.select2-container').each(function() {
+                $(this).css({
+                    'position': 'relative',
+                    'z-index': '10001'
+                });
+            });
+            
+            // Override Select2 dropdown positioning
+            $('.select2-dropdown').css({
+                'max-width': '100%',
+                'box-sizing': 'border-box',
+                'position': 'absolute'
+            });
+        }, 50);
+    }
+    
+    // Initial Select2 setup (this may not work if modal is hidden)
+    if ($('#addModal').is(':visible')) {
+        initializeSelect2();
+    }
+    
+    // Modal functions
     window.openModal = function() {
         $('#addModal').removeClass('hidden');
-        // Refresh select2 dropdowns
-        setTimeout(function(){
-            $('#category_id').select2('destroy').select2({
-                dropdownAutoWidth: true,
-                width: '100%',
-                minimumResultsForSearch: 10,
-                dropdownParent: $('#addModal')
+        
+        // Wait for modal to be fully visible, then initialize Select2
+        setTimeout(function() {
+            initializeSelect2();
+            
+            // Additional step: ensure proper positioning
+            $('.select2-container').each(function() {
+                $(this).css({
+                    'position': 'relative',
+                    'z-index': '10001'
+                });
             });
-            $('#subcategory_id').select2('destroy').select2({
-                dropdownAutoWidth: true,
-                width: '100%',
-                minimumResultsForSearch: 10,
-                dropdownParent: $('#addModal')
+            
+            // Force dropdown positioning to be relative to modal
+            $(document).on('select2:open.modalSelect2', '.select2', function() {
+                setTimeout(function() {
+                    var $dropdown = $('.select2-dropdown');
+                    var $modal = $('#addModal .modal-content');
+                    
+                    if ($dropdown.length && $modal.length) {
+                        // Get modal bounds
+                        var modalRect = $modal[0].getBoundingClientRect();
+                        var dropdownRect = $dropdown[0].getBoundingClientRect();
+                        
+                        // If dropdown is outside modal bounds, reposition it
+                        if (dropdownRect.bottom > modalRect.bottom) {
+                            $dropdown.css({
+                                'max-height': Math.max(100, modalRect.bottom - dropdownRect.top - 10) + 'px',
+                                'overflow-y': 'auto'
+                            });
+                        }
+                        
+                        // Ensure dropdown doesn't go beyond modal width
+                        if (dropdownRect.right > modalRect.right) {
+                            $dropdown.css({
+                                'max-width': modalRect.width + 'px'
+                            });
+                        }
+                    }
+                }, 10);
             });
-            $('#access_rights').select2('destroy').select2({
-                dropdownAutoWidth: true,
-                width: '100%',
-                minimumResultsForSearch: 10,
-                dropdownParent: $('#addModal')
-            });
-        }, 100);
+        }, 200);
     }
+    
     window.closeModal = function() {
+        // Remove event listeners
+        $(document).off('select2:open.modalSelect2', '.select2');
+        // Destroy Select2 instances before hiding modal
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('.select2').select2('destroy');
+        }
         $('#addModal').addClass('hidden');
         clearForm();
     }
