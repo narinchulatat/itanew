@@ -714,6 +714,20 @@ $(document).ready(function() {
         return yearOption ? yearOption.textContent : 'ปีที่เลือก';
     };
     
+    window.getSubcategoryText = function(subcategoryId) {
+        const subcategoryOption = document.querySelector(`#subcategory_dropdown [data-value="${subcategoryId}"]`);
+        return subcategoryOption ? subcategoryOption.textContent : 'หมวดหมู่ย่อยที่เลือก';
+    };
+    
+    window.getCategoryText = function(categoryId) {
+        const categoryOption = document.querySelector(`#category_dropdown [data-value="${categoryId}"]`);
+        return categoryOption ? categoryOption.textContent : 'หมวดหมู่หลักที่เลือก';
+    };
+    
+    window.getAccessRightsText = function(accessRights) {
+        return accessRights === 'public' ? 'Public' : accessRights === 'private' ? 'Private' : 'เลือกสิทธิ์การเข้าถึง';
+    };
+    
     // Save Configuration
     $('#saveConfigBtn').on('click', function() {
         const yearId = $('#config_year').val();
@@ -907,12 +921,12 @@ $(document).ready(function() {
         setDropdownValue('category_dropdown', category_id);
         
         // Load and set subcategory
-        loadSubcategories(category_id, function() {
-            setDropdownValue('subcategory_dropdown', subcategory_id);
+        loadSubcategoriesForCategory(category_id, function() {
+            setDropdownValue('subcategory_dropdown', subcategory_id, getSubcategoryText(subcategory_id));
         });
         
         // Set access rights
-        setDropdownValue('access_rights_dropdown', access_rights);
+        setDropdownValue('access_rights_dropdown', access_rights, getAccessRightsText(access_rights));
         
         $('#file_upload').val('');
         
@@ -1011,71 +1025,6 @@ $(document).ready(function() {
             $('#fileName').text('เลือกไฟล์...');
         }
     });
-});
-var subcategories = <?php echo json_encode($subcategories); ?>;
-
-function loadSubcategories(category_id, callback) {
-    const subcategoryContent = document.getElementById('subcategory_dropdown').querySelector('.dropdown-content');
-    let options = '<input type="text" class="dropdown-search" placeholder="ค้นหาหมวดหมู่ย่อย..." onkeyup="filterDropdown(\'subcategory_dropdown\', this.value)">';
-    options += '<div class="dropdown-option" data-value="" onclick="selectOption(\'subcategory_dropdown\', \'\', \'เลือกหมวดหมู่ย่อย\')">เลือกหมวดหมู่ย่อย</div>';
-    
-    subcategories.forEach(function(subcat) {
-        if (subcat.category_id == category_id) {
-            options += '<div class="dropdown-option" data-value="' + subcat.id + '" onclick="selectOption(\'subcategory_dropdown\', \'' + subcat.id + '\', \'' + subcat.name.replace(/'/g, '&#39;') + '\')">' + subcat.name + '</div>';
-        }
-    });
-    
-    subcategoryContent.innerHTML = options;
-    
-    // Reset subcategory selection
-    selectOption('subcategory_dropdown', '', 'เลือกหมวดหมู่ย่อย');
-    
-    if (callback) {
-        callback();
-    }
-}
-
-$('#category_id').on('change', function() {
-    var category_id = $(this).val();
-    loadSubcategories(category_id);
-});
-
-$('.edit-btn').on('click', function() {
-    if ($(this).is(':disabled')) return;
-    var row = $(this).closest('tr');
-    var id = row.data('id');
-    var title = row.data('title');
-    var content = row.data('content');
-    var category_id = row.data('category_id');
-    var subcategory_id = row.data('subcategory_id');
-    var access_rights = row.data('access_rights');
-    var file_name = row.data('file_name');
-    
-    $('#id').val(id);
-    $('#title').val(title);
-    $('#content').val(content);
-    
-    // Set category and load subcategories
-    setDropdownValue('category_dropdown', category_id);
-    loadSubcategories(category_id, function() {
-        setDropdownValue('subcategory_dropdown', subcategory_id);
-    });
-    
-    $('#file_upload').val('');
-    setDropdownValue('access_rights_dropdown', access_rights);
-    
-    // Show existing file if any
-    if (file_name) {
-        if ($('#old_file').length === 0) {
-            $('<div id="old_file" class="mb-2 text-sm text-gray-600">ไฟล์เดิม: <a href="uploads/' + file_name + '" target="_blank" class="text-blue-600 underline">' + file_name + '</a></div>').insertBefore('#file_upload');
-        } else {
-            $('#old_file').html('ไฟล์เดิม: <a href="uploads/' + file_name + '" target="_blank" class="text-blue-600 underline">' + file_name + '</a>');
-        }
-    } else {
-        $('#old_file').remove();
-    }
-    
-    openModal();
 });
 </script>
 </body>
