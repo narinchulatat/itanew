@@ -104,6 +104,31 @@ foreach ($configs as $cfg) {
         .select2-container--default .select2-selection--single { height: 42px; line-height: 42px; border-radius: 0.5rem; }
         .select2-container--default .select2-selection--single .select2-selection__rendered { padding-left: 12px; }
         .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+        
+        /* Fix select2 dropdown positioning and z-index in modals */
+        .select2-container .select2-dropdown {
+            z-index: 99999 !important;
+            position: absolute !important;
+        }
+        
+        /* Ensure modal content has proper overflow handling */
+        #modalAdd .bg-white, #modalEdit .bg-white {
+            overflow: visible !important;
+        }
+        
+        /* Specific fixes for select2 in modals */
+        #modalAdd .select2-container .select2-dropdown,
+        #modalEdit .select2-container .select2-dropdown {
+            z-index: 99999 !important;
+            position: absolute !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        
+        /* Ensure modal backdrop doesn't interfere with dropdowns */
+        #modalAdd, #modalEdit {
+            overflow: visible !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
