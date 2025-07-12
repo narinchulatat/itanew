@@ -273,30 +273,19 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             width: 100% !important;
             max-width: 100% !important;
         }
+        #addModal .select2-selection {
+            min-height: 38px !important;
+            max-width: 100% !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+        }
         #addModal .select2-selection__rendered {
             white-space: normal !important;
             word-break: break-word !important;
-            text-overflow: ellipsis;
-            overflow: hidden;
+            overflow-wrap: break-word !important;
             max-width: 100%;
             display: block;
-        }
-        #addModal .select2-container .select2-dropdown {
-            max-width: 100% !important;
-            width: 100% !important;
-            min-width: 200px;
-            word-break: break-word;
-            white-space: normal;
-            z-index: 9999 !important;
-        }
-        #addModal .select2-container .select2-results__option {
-            white-space: normal !important;
-            word-break: break-word !important;
-            max-width: 100%;
-        }
-        /* --- Force select2 dropdown to stay inside modal and wrap text --- */
-        #addModal .modal-content {
-            position: relative;
         }
         #addModal .select2-container .select2-dropdown {
             position: absolute !important;
@@ -305,23 +294,19 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             max-width: 100% !important;
             width: 100% !important;
             min-width: 200px;
-            word-break: break-all !important;
+            word-break: break-word !important;
             overflow-wrap: break-word !important;
             white-space: normal !important;
             z-index: 99999 !important;
         }
-        #addModal .select2-selection__rendered {
-            white-space: normal !important;
-            word-break: break-all !important;
-            overflow-wrap: break-word !important;
-            max-width: 100%;
-            display: block;
-        }
         #addModal .select2-container .select2-results__option {
             white-space: normal !important;
-            word-break: break-all !important;
+            word-break: break-word !important;
             overflow-wrap: break-word !important;
             max-width: 100%;
+        }
+        .close {
+            cursor: pointer;
         }
     </style>
 </head>
