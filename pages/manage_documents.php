@@ -287,23 +287,29 @@ $subcategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             max-width: 100%;
             display: block;
         }
+        /* Fix select2 dropdown width and text overflow in modal */
         #addModal .select2-container .select2-dropdown {
+            max-width: calc(100% - 2rem) !important;
+            width: auto !important;
+            min-width: 200px !important;
+            box-sizing: border-box !important;
             position: absolute !important;
-            left: 0 !important;
-            right: 0 !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            min-width: 200px;
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
-            white-space: normal !important;
             z-index: 99999 !important;
         }
+
         #addModal .select2-container .select2-results__option {
-            white-space: normal !important;
+            max-width: 100% !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
             word-break: break-word !important;
-            overflow-wrap: break-word !important;
-            max-width: 100%;
+        }
+
+        /* Ensure dropdown doesn't exceed modal boundaries */
+        #addModal .select2-container .select2-dropdown {
+            left: 0 !important;
+            right: 0 !important;
+            margin: 0 1rem !important;
         }
         
         /* Ensure modal content has proper overflow handling */
