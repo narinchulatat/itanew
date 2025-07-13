@@ -68,9 +68,25 @@ foreach ($homeConfigs as $config) {
     $configMap[$config['year']][$config['quarter']] = $config;
 }
 
+// หาการตั้งค่าเริ่มต้น
+$defaultConfig = null;
+foreach ($homeConfigs as $config) {
+    if (isset($config['is_default']) && $config['is_default']) {
+        $defaultConfig = $config;
+        break;
+    }
+}
+
 // กำหนดปี/ไตรมาสที่เลือก (ใช้ year value แทน id)
 $selectedYearValue = isset($_GET['year']) ? intval($_GET['year']) : ($years[0]['year'] ?? date('Y')+543);
-$selectedQuarter = isset($_GET['quarter']) ? intval($_GET['quarter']) : 1;
+
+// ใช้ active_quarter จากการตั้งค่าเริ่มต้น หรือ quarter 3 เป็นค่าเริ่มต้น
+$defaultQuarter = 3; // ตั้งค่าเริ่มต้นเป็นไตรมาส 3 ตามความต้องการ
+if ($defaultConfig && isset($defaultConfig['active_quarter'])) {
+    $defaultQuarter = $defaultConfig['active_quarter'];
+}
+
+$selectedQuarter = isset($_GET['quarter']) ? intval($_GET['quarter']) : $defaultQuarter;
 
 // หา year_id จาก year value
 $selectedYearId = null;
