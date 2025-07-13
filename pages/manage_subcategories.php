@@ -296,7 +296,7 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <!-- Modal for Adding/Editing Subcategory -->
 <div id="subcategoryModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-7xl mx-4">
         <div class="flex justify-between items-center border-b border-gray-200 px-6 py-4">
             <h4 class="text-lg font-semibold text-gray-800">เพิ่ม/แก้ไขหมวดหมู่ย่อย</h4>
             <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl close transition duration-200" onclick="closeModal()">&times;</button>
@@ -394,7 +394,7 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
         clearCategoryDropdown();
         
         if (yearId && quarter) {
-            $.post('ajax/get_categories.php', {
+            return $.post('ajax/get_categories.php', {
                 year_id: yearId,
                 quarter: quarter
             })
@@ -405,6 +405,8 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
             .fail(function() {
                 console.error('Failed to load categories');
             });
+        } else {
+            return $.Deferred().resolve();
         }
     }
     
@@ -478,16 +480,29 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
             // แสดง loading indicator
             $('#subcategoryFormSubmitButton').html('<i class="fas fa-spinner fa-spin mr-2"></i>Loading...');
             $.ajax({
-                url: '/newita/fetch_subcategory.php', // ใช้ path แบบ absolute เพื่อแก้ปัญหา 404
+                url: 'fetch_subcategory.php', // แก้ไข path ให้ถูกต้อง
                 method: 'POST',
                 data: { id: id },
                 dataType: 'json',
                 success: function(response) {
                     if (response && response.id) {
+                        // เติมข้อมูลในฟอร์ม
                         $('#subcategoryId').val(response.id);
-                        $('#category_id').val(response.category_id).trigger('change');
                         $('#name').val(response.name);
-                        $('#subcategoryFormSubmitButton').html('<i class="fas fa-edit mr-2"></i>Update Subcategory');
+                        
+                        // เติมข้อมูลปีและไตรมาส
+                        $('#year_id').val(response.year).trigger('change');
+                        $('#quarter').val(response.quarter).trigger('change');
+                        
+                        // รอให้ categories โหลดเสร็จแล้วค่อยเติม category_id
+                        setTimeout(function() {
+                            loadCategoriesForYearQuarter().then(function() {
+                                $('#category_id').val(response.category_id).trigger('change');
+                            });
+                        }, 500);
+                        
+                        // เปลี่ยนข้อความปุ่ม
+                        $('#subcategoryFormSubmitButton').html('<i class="fas fa-edit mr-2"></i>แก้ไขหมวดหมู่ย่อย');
                         $('#subcategoryFormSubmitButton').attr('name', 'edit_subcategory');
                         openModal();
                     } else {
@@ -501,7 +516,7 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.log('AJAX error:', xhr.responseText, status, error); // เพิ่ม log สำหรับ debug
+                    console.log('AJAX error:', xhr.responseText, status, error);
                     Swal.fire({
                         title: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
                         text: error,
