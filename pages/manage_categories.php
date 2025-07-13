@@ -274,7 +274,7 @@ ob_end_flush(); // ส่งบัฟเฟอร์เอาต์พุตท�
 
 <!-- Modal for Adding/Editing Category -->
 <div id="categoryModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl xl:max-w-4xl mx-4">
         <div class="flex justify-between items-center border-b border-gray-200 px-6 py-4">
             <h4 class="text-lg font-semibold text-gray-800">เพิ่ม/แก้ไขหมวดหมู่หลัก</h4>
             <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl close transition duration-200" onclick="closeModal()">&times;</button>

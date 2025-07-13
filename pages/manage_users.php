@@ -14,8 +14,8 @@ $start = ($page - 1) * $limit;
 $total_results = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 $total_pages = ceil($total_results / $limit);
 
-// ดึงข้อมูลผู้ใช้สำหรับหน้าเฉพาะ
-$users = $pdo->prepare("SELECT users.id, username, role_name, role_id FROM users JOIN roles ON users.role_id = roles.id LIMIT :start, :limit");
+// ดึงข้อมูลผู้ใช้สำหรับหน้าเฉพาะ (join profile เพื่อเอาชื่อ-นามสกุล)
+$users = $pdo->prepare("SELECT users.id, username, role_name, role_id, profile.first_name, profile.last_name FROM users JOIN roles ON users.role_id = roles.id LEFT JOIN profile ON users.id = profile.user_id LIMIT :start, :limit");
 $users->bindParam(':start', $start, PDO::PARAM_INT);
 $users->bindParam(':limit', $limit, PDO::PARAM_INT);
 $users->execute();
@@ -82,91 +82,86 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </section>
 
 <!-- Main content -->
-<section class="content container-fluid">
-    <div class="bg-white rounded-2xl shadow-xl p-8 mb-8 border border-gray-100 max-w-5xl mx-auto">
-        <div class="flex items-center justify-between mb-6">
-            <h2 class="text-xl font-bold text-blue-700">จัดการผู้ใช้</h2>
-            <button id="addUserBtn" class="bg-green-600 text-white rounded-lg px-5 py-2 font-semibold shadow hover:bg-green-700 transition">เพิ่มผู้ใช้</button>
-        </div>
-        <!-- Modal แบบ Tailwind CSS -->
-        <div id="userModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto border border-gray-200">
-                <div class="flex justify-between items-center border-b px-8 py-6">
-                    <h4 class="text-xl font-bold" id="userModalLabel">เพิ่มผู้ใช้</h4>
-                    <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl close" id="closeModalBtn">&times;</button>
-                </div>
-                <div class="px-8 py-6">
-                    <form id="userForm" action="index.php?page=manage_users&pg=<?= $page ?>" method="POST" class="space-y-6">
-                        <div>
-                            <label for="username" class="block text-base font-medium text-gray-700 mb-2">Username</label>
-                            <input type="text" class="border border-gray-300 rounded-lg px-4 py-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none text-base" id="username" name="username" required>
-                        </div>
-                        <div id="passwordField">
-                            <label for="password" class="block text-base font-medium text-gray-700 mb-2">Password</label>
-                            <input type="password" class="border border-gray-300 rounded-lg px-4 py-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none text-base" id="password" name="password">
-                            <p class="text-xs text-gray-500 mt-1">เว้นว่างไว้หากคุณไม่ต้องการเปลี่ยนรหัสผ่าน</p>
-                        </div>
-                        <div>
-                            <label for="role_id" class="block text-base font-medium text-gray-700 mb-2">Role</label>
-                            <select class="border border-gray-300 rounded-lg px-4 py-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none text-base" id="role_id" name="role_id">
-                                <?php foreach ($roles as $role) : ?>
-                                    <option value="<?= $role['id'] ?>"><?= $role['role_name'] ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <input type="hidden" id="userId" name="id">
-                        <button type="submit" name="add_user" class="bg-blue-600 text-white rounded-lg px-4 py-3 font-semibold hover:bg-blue-700 w-full transition text-base" id="userFormSubmitButton">บันทึก</button>
-                    </form>
-                </div>
+<div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-blue-700">จัดการผู้ใช้</h2>
+        <button id="addUserBtn" class="bg-green-600 text-white rounded-lg px-5 py-2 font-semibold shadow hover:bg-green-700 transition">เพิ่มผู้ใช้</button>
+    </div>
+    <!-- Modal แบบ Tailwind CSS -->
+    <div id="userModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto border border-gray-200">
+            <div class="flex justify-between items-center border-b px-8 py-6">
+                <h4 class="text-xl font-bold" id="userModalLabel">เพิ่มผู้ใช้</h4>
+                <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl close" id="closeModalBtn">&times;</button>
+            </div>
+            <div class="px-8 py-6">
+                <form id="userForm" action="index.php?page=manage_users&pg=<?= $page ?>" method="POST" class="space-y-6">
+                    <div>
+                        <label for="username" class="block text-base font-medium text-gray-700 mb-2">Username</label>
+                        <input type="text" class="border border-gray-300 rounded-lg px-4 py-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none text-base" id="username" name="username" required>
+                    </div>
+                    <div id="passwordField">
+                        <label for="password" class="block text-base font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" class="border border-gray-300 rounded-lg px-4 py-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none text-base" id="password" name="password">
+                        <p class="text-xs text-gray-500 mt-1">เว้นว่างไว้หากคุณไม่ต้องการเปลี่ยนรหัสผ่าน</p>
+                    </div>
+                    <div>
+                        <label for="role_id" class="block text-base font-medium text-gray-700 mb-2">Role</label>
+                        <select class="border border-gray-300 rounded-lg px-4 py-3 w-full focus:ring-2 focus:ring-blue-500 focus:outline-none text-base" id="role_id" name="role_id">
+                            <?php foreach ($roles as $role) : ?>
+                                <option value="<?= $role['id'] ?>"><?= $role['role_name'] ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <input type="hidden" id="userId" name="id">
+                    <button type="submit" name="add_user" class="bg-blue-600 text-white rounded-lg px-4 py-3 font-semibold hover:bg-blue-700 w-full transition text-base" id="userFormSubmitButton">บันทึก</button>
+                </form>
             </div>
         </div>
-        <div class="overflow-x-auto">
-            <!-- แสดงตารางข้อมูลผู้ใช้ -->
-            <table id="userTable" class="min-w-full divide-y divide-gray-200 mt-4">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ID</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Username</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Role</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-100">
-                    <?php foreach ($users as $user) : ?>
-                        <tr class="hover:bg-blue-50 transition">
-                            <td class="px-4 py-2 text-sm text-gray-800"><?= $user['id'] ?></td>
-                            <td class="px-4 py-2 text-sm text-gray-800"><?= $user['username'] ?></td>
-                            <td class="px-4 py-2"><span class="inline-block px-2 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold shadow"><?= ucwords($user['role_name']) ?></span></td>
-                            <td class="px-4 py-2 flex gap-2">
-                                <button type="button" class="bg-blue-600 text-white rounded-lg px-3 py-1 font-semibold hover:bg-blue-700 text-sm shadow edit-btn transition" data-id="<?= $user['id'] ?>" data-username="<?= $user['username'] ?>" data-role_id="<?= $user['role_id'] ?>">
-                                    แก้ไข
-                                </button>
-                                <form method="POST" class="delete-form" style="display:inline;">
-                                    <input type="hidden" name="id" value="<?= $user['id'] ?>">
-                                    <input type="hidden" name="delete_user" value="delete">
-                                    <button type="button" class="bg-red-600 text-white rounded-lg px-3 py-1 font-semibold hover:bg-red-700 text-sm shadow delete-btn transition">
-                                        ลบ
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination Links -->
-        <ul class="flex flex-wrap gap-2 justify-center mt-8 mb-2">
-            <?php for ($i = 1; $i <= $total_pages; $i++) : ?>
-                <li>
-                    <a href="index.php?page=manage_users&pg=<?= $i ?>" class="px-5 py-2 rounded-lg border border-gray-300 font-semibold shadow-sm transition text-base <?= ($i == $page) ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-blue-50' ?>">
-                        <?= $i ?>
-                    </a>
-                </li>
-            <?php endfor; ?>
-        </ul>
     </div>
-</section>
+    <div class="overflow-x-auto">
+        <!-- แสดงตารางข้อมูลผู้ใช้ -->
+        <table id="userTable" class="min-w-full divide-y divide-gray-200 mt-4">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Username</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ชื่อ</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">นามสกุล</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Role</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-100">
+                <?php foreach ($users as $user) : ?>
+                    <tr class="hover:bg-blue-50 transition">
+                        <td class="px-4 py-2 text-sm text-gray-800"><?= $user['id'] ?></td>
+                        <td class="px-4 py-2 text-sm text-gray-800"><?= $user['username'] ?></td>
+                        <td class="px-4 py-2 text-sm text-gray-800">
+                            <?= (!empty($user['first_name'])) ? htmlspecialchars($user['first_name']) : '<span class="text-gray-400">ไม่มีข้อมูล</span>' ?>
+                        </td>
+                        <td class="px-4 py-2 text-sm text-gray-800">
+                            <?= (!empty($user['last_name'])) ? htmlspecialchars($user['last_name']) : '<span class="text-gray-400">ไม่มีข้อมูล</span>' ?>
+                        </td>
+                        <td class="px-4 py-2"><span class="inline-block px-2 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold shadow"><?= ucwords($user['role_name']) ?></span></td>
+                        <td class="px-4 py-2 flex gap-2">
+                            <button type="button" class="bg-blue-600 text-white rounded-lg px-3 py-1 font-semibold hover:bg-blue-700 text-sm shadow edit-btn transition" data-id="<?= $user['id'] ?>" data-username="<?= $user['username'] ?>" data-role_id="<?= $user['role_id'] ?>" data-first_name="<?= htmlspecialchars($user['first_name'] ?? '-') ?>" data-last_name="<?= htmlspecialchars($user['last_name'] ?? '-') ?>">
+                                แก้ไข
+                            </button>
+                            <form method="POST" class="delete-form" style="display:inline;">
+                                <input type="hidden" name="id" value="<?= $user['id'] ?>">
+                                <input type="hidden" name="delete_user" value="delete">
+                                <button type="button" class="bg-red-600 text-white rounded-lg px-3 py-1 font-semibold hover:bg-red-700 text-sm shadow delete-btn transition">
+                                    ลบ
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
 <script>
 // Modal control
 const userModal = document.getElementById('userModal');
@@ -179,7 +174,26 @@ const passwordInput = document.getElementById('password');
 const userIdInput = document.getElementById('userId');
 const usernameInput = document.getElementById('username');
 const roleIdInput = document.getElementById('role_id');
-
+// เพิ่ม field สำหรับชื่อ-นามสกุล (readonly) ใน modal
+let firstNameInput = document.getElementById('first_name');
+let lastNameInput = document.getElementById('last_name');
+if (!firstNameInput || !lastNameInput) {
+    const div = document.createElement('div');
+    div.className = 'flex gap-4';
+    div.innerHTML = `
+        <div class="w-1/2">
+            <label class="block text-base font-medium text-gray-700 mb-2">ชื่อ</label>
+            <input type="text" class="border border-gray-300 rounded-lg px-4 py-3 w-full bg-gray-100 text-gray-500" id="first_name" name="first_name" readonly tabindex="-1">
+        </div>
+        <div class="w-1/2">
+            <label class="block text-base font-medium text-gray-700 mb-2">นามสกุล</label>
+            <input type="text" class="border border-gray-300 rounded-lg px-4 py-3 w-full bg-gray-100 text-gray-500" id="last_name" name="last_name" readonly tabindex="-1">
+        </div>
+    `;
+    userForm.insertBefore(div, userForm.children[1]);
+    firstNameInput = document.getElementById('first_name');
+    lastNameInput = document.getElementById('last_name');
+}
 addUserBtn.addEventListener('click', function() {
     userForm.reset();
     userForm.action = 'index.php?page=manage_users&pg=<?= $page ?>';
@@ -189,6 +203,9 @@ addUserBtn.addEventListener('click', function() {
     passwordInput.style.display = 'block';
     passwordInput.required = true;
     userIdInput.value = '';
+    firstNameInput.value = '';
+    lastNameInput.value = '';
+    firstNameInput.parentElement.parentElement.style.display = 'flex';
     userModal.classList.remove('hidden');
 });
 
@@ -203,6 +220,8 @@ editBtns.forEach(function(btn) {
         const id = this.getAttribute('data-id');
         const username = this.getAttribute('data-username');
         const role_id = this.getAttribute('data-role_id');
+        const first_name = this.getAttribute('data-first_name');
+        const last_name = this.getAttribute('data-last_name');
         userForm.action = 'index.php?page=manage_users&pg=<?= $page ?>';
         userIdInput.value = id;
         userModalLabel.textContent = 'แก้ไขผู้ใช้';
@@ -212,6 +231,13 @@ editBtns.forEach(function(btn) {
         userFormSubmitButton.textContent = 'อัปเดต';
         passwordInput.style.display = 'block';
         passwordInput.required = false;
+        firstNameInput.value = first_name;
+        lastNameInput.value = last_name;
+        firstNameInput.readOnly = true;
+        lastNameInput.readOnly = true;
+        firstNameInput.tabIndex = -1;
+        lastNameInput.tabIndex = -1;
+        firstNameInput.parentElement.parentElement.style.display = 'flex';
         userModal.classList.remove('hidden');
     });
 });
@@ -248,7 +274,7 @@ deleteBtns.forEach(function(btn) {
 // DataTable (optional, for search/paging only)
 $(document).ready(function() {
     $('#userTable').DataTable({
-        paging: true, // เปิด paging ของ DataTables ให้เหมือนหน้าอื่น
+        paging: true,
         searching: true,
         info: true,
         autoWidth: false,
@@ -275,10 +301,11 @@ $(document).ready(function() {
             $('.dataTables_wrapper .dataTables_length').css('float', 'left');
             $('.dataTables_wrapper .dataTables_filter').css('float', 'right');
         },
-        // กำหนด columns ให้ตรงกับจำนวน column จริง
         columns: [
             { title: "ID" },
             { title: "Username" },
+            { title: "ชื่อ" },
+            { title: "นามสกุล" },
             { title: "Role" },
             { title: "Actions", orderable: false, searchable: false }
         ]
