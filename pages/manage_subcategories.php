@@ -197,38 +197,85 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 
-/* Responsive select dropdown */
-#category_id {
+/* Enhanced select dropdown styling for better overflow control */
+#category_id, #year_id, #quarter {
     position: relative;
     z-index: 10;
-    white-space: nowrap;
-    word-break: break-word;
     max-width: 100%;
     min-width: 0;
-    overflow-x: auto;
     font-size: 1rem;
     padding: 0.5rem;
+    /* Ensure dropdown list has proper height constraints */
+    max-height: 300px;
+    overflow-y: auto;
 }
-#category_id option {
-    max-width: 95vw;
+
+/* Target the dropdown list container (works in webkit browsers) */
+#category_id::-webkit-scrollbar {
+    width: 8px;
+}
+
+#category_id::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#category_id::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+#category_id::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Options styling */
+#category_id option, #year_id option, #quarter option {
+    padding: 0.5rem;
+    font-size: 1rem;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    display: block;
-    font-size: 1rem;
-    padding: 0.25rem 0.5rem;
-    overflow-y: auto;
-    max-height: 300px;
+    max-width: 100%;
 }
+
+/* Modal specific dropdown enhancements */
+#subcategoryModal select {
+    position: relative;
+    z-index: 1000;
+}
+
+/* Ensure dropdown appears above modal content */
+#subcategoryModal {
+    z-index: 9999;
+}
+
+/* Fix for Select2 dropdown positioning within modal */
+.select2-container {
+    z-index: 10000 !important;
+}
+
+.select2-dropdown {
+    z-index: 10001 !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+}
+
+/* Responsive adjustments */
 @media (max-width: 640px) {
-    #category_id {
+    #category_id, #year_id, #quarter {
+        font-size: 0.95rem;
+        padding: 0.4rem;
+        max-height: 200px;
+    }
+    
+    #category_id option, #year_id option, #quarter option {
         font-size: 0.95rem;
         padding: 0.4rem;
     }
-    #category_id option {
-        font-size: 0.95rem;
-        max-width: 90vw;
-        max-height: 200px;
+    
+    .select2-dropdown {
+        max-height: 200px !important;
     }
 }
 </style>
@@ -365,6 +412,11 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
     function openModal() {
         document.getElementById('subcategoryModal').classList.remove('hidden');
         document.body.style.overflow = 'hidden'; // ป้องกันการเลื่อนหน้า
+        
+        // Reinitialize Select2 when modal opens
+        setTimeout(function() {
+            reinitializeSelect2();
+        }, 100);
     }
     
     function closeModal() {
@@ -379,10 +431,18 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
         document.getElementById('subcategoryFormSubmitButton').textContent = 'Add Subcategory';
         document.getElementById('subcategoryFormSubmitButton').innerHTML = '<i class="fas fa-save mr-2"></i>Add Subcategory';
         document.getElementById('subcategoryFormSubmitButton').setAttribute('name', 'add_subcategory');
+        
+        // Clear Select2 selections
         $('#category_id').val('').trigger('change');
         $('#year_id').val('').trigger('change');
         $('#quarter').val('').trigger('change');
+        
         clearCategoryDropdown();
+        
+        // Reinitialize Select2 after clearing
+        setTimeout(function() {
+            reinitializeSelect2();
+        }, 100);
     }
     
     function loadCategoriesForYearQuarter() {
@@ -419,6 +479,33 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
         });
         
         categorySelect.trigger('change');
+        
+        // Reinitialize Select2 after updating options
+        setTimeout(function() {
+            categorySelect.select2('destroy');
+            categorySelect.select2({
+                dropdownParent: $('#subcategoryModal'),
+                width: '100%',
+                placeholder: 'เลือกหมวดหมู่หลัก',
+                allowClear: false,
+                dropdownCssClass: 'custom-select2-dropdown',
+                dropdownAutoWidth: true,
+                maximumResultsForSearch: 10,
+                escapeMarkup: function(markup) {
+                    return markup;
+                },
+                templateResult: function(option) {
+                    if (!option.id) {
+                        return option.text;
+                    }
+                    var text = option.text;
+                    if (text.length > 50) {
+                        text = text.substring(0, 47) + '...';
+                    }
+                    return $('<span title="' + option.text + '">' + text + '</span>');
+                }
+            });
+        }, 100);
     }
     
     function clearCategoryDropdown() {
@@ -426,6 +513,92 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
         categorySelect.empty();
         categorySelect.append('<option value="">เลือกปีและไตรมาสก่อน</option>');
         categorySelect.trigger('change');
+        
+        // Reinitialize Select2 for cleared dropdown
+        setTimeout(function() {
+            categorySelect.select2('destroy');
+            categorySelect.select2({
+                dropdownParent: $('#subcategoryModal'),
+                width: '100%',
+                placeholder: 'เลือกปีและไตรมาสก่อน',
+                allowClear: false,
+                dropdownCssClass: 'custom-select2-dropdown',
+                dropdownAutoWidth: true,
+                maximumResultsForSearch: 10,
+                escapeMarkup: function(markup) {
+                    return markup;
+                }
+            });
+        }, 100);
+    }
+    
+    function initializeSelect2() {
+        // Initialize Select2 for all select elements in the modal
+        $('#year_id, #quarter, #category_id').select2({
+            dropdownParent: $('#subcategoryModal'),
+            width: '100%',
+            placeholder: function() {
+                return $(this).find('option:first').text();
+            },
+            allowClear: false,
+            dropdownCssClass: 'custom-select2-dropdown',
+            // Configure dropdown positioning within modal
+            dropdownAutoWidth: true,
+            // Set maximum height for dropdown
+            maximumResultsForSearch: 10, // Show search box if more than 10 options
+            escapeMarkup: function(markup) {
+                return markup;
+            },
+            templateResult: function(option) {
+                if (!option.id) {
+                    return option.text;
+                }
+                // Limit text length for better display
+                var text = option.text;
+                if (text.length > 50) {
+                    text = text.substring(0, 47) + '...';
+                }
+                return $('<span title="' + option.text + '">' + text + '</span>');
+            }
+        });
+        
+        // Custom CSS for Select2 dropdown positioning
+        $('<style>')
+            .prop('type', 'text/css')
+            .html(`
+                .custom-select2-dropdown {
+                    max-height: 300px !important;
+                    overflow-y: auto !important;
+                    z-index: 10001 !important;
+                }
+                .select2-container--default .select2-results__option {
+                    padding: 8px 12px !important;
+                    max-width: 100% !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    white-space: nowrap !important;
+                }
+                .select2-container--default .select2-results__option--highlighted {
+                    background-color: #3b82f6 !important;
+                }
+                @media (max-width: 640px) {
+                    .custom-select2-dropdown {
+                        max-height: 200px !important;
+                    }
+                    .select2-container--default .select2-results__option {
+                        padding: 6px 8px !important;
+                        font-size: 0.9rem !important;
+                    }
+                }
+            `)
+            .appendTo('head');
+    }
+    
+    function reinitializeSelect2() {
+        // Destroy existing Select2 instances
+        $('#year_id, #quarter, #category_id').select2('destroy');
+        // Reinitialize
+        initializeSelect2();
     }
 
     // ปิด modal เมื่อคลิกที่ backdrop
@@ -443,6 +616,9 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
     });
 
     $(document).ready(function() {
+        // Initialize Select2 for better dropdown control
+        initializeSelect2();
+        
         var table = $('#subcategoryTable').DataTable({
             "paging": true,
             "searching": true,
