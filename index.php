@@ -14,7 +14,7 @@ if ($page === 'home') {
     $defaultQuarter = 3;
     
     // ดึงการตั้งค่าเริ่มต้นจากฐานข้อมูล
-    $stmt = $pdo->prepare("SELECT default_year, default_quarter FROM home_display_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1");
+    $stmt = $pdo->prepare("SELECT default_year, default_quarter FROM home_display_config WHERE is_default = 1 ORDER BY id DESC LIMIT 1");
     $stmt->execute();
     $defaultConfig = $stmt->fetch(PDO::FETCH_ASSOC);
     
