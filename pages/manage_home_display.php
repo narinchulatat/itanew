@@ -1,16 +1,14 @@
 <?php
-// เริ่ม output buffering และ session ก่อนอื่น
-ob_start();
+// เริ่ม session ก่อนอื่น
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
 // รวมไฟล์ database
-require_once dirname(__DIR__) . '/db.php';
+require_once '../db.php';
 
 // ตรวจสอบสิทธิ์ admin
 if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) {
-    ob_end_clean(); // ล้าง output buffer
     header('Location: login.php');
     exit();
 }
@@ -24,9 +22,6 @@ foreach ($years as $y) {
 
 // เพิ่ม/แก้ไข/ลบ config
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // ล้าง output buffer ก่อนส่ง header
-    ob_end_clean();
-    
     $action = $_POST['action'] ?? '';
     $year = intval($_POST['year'] ?? 0);
     $quarter = intval($_POST['quarter'] ?? 0);

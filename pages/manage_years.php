@@ -1,6 +1,5 @@
 <?php
-ob_start();
-include './db.php';
+require_once '../db.php';
 session_start();
 
 if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) {
@@ -38,9 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $message = 'ไม่สามารถลบปีนี้ได้ เนื่องจากถูกใช้งานในข้อมูลอื่น';
             $action = 'error';
         } else {
-            throw $e;
+            $message = 'เกิดข้อผิดพลาดในการดำเนินการ: ' . $e->getMessage();
+            $action = 'error';
         }
     }
+    
+    // ใช้ JavaScript เพื่อแสดงข้อความและ redirect
     echo "<script>
         document.addEventListener('DOMContentLoaded', function() {
             Swal.fire({
@@ -55,7 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </script>";
     exit;
 }
-ob_end_flush();
 ?>
 
 <style>
