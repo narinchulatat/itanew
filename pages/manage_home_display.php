@@ -34,6 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $source_quarter = intval($_POST['source_quarter'] ?? 0);
     $is_default = isset($_POST['is_default']) && $_POST['is_default'] === '1';
     $active_quarter = intval($_POST['active_quarter'] ?? 1);
+    $default_year = intval($_POST['default_year'] ?? 2568);
+    $default_quarter = intval($_POST['default_quarter'] ?? 3);
     $id = intval($_POST['id'] ?? 0);
     
     try {
@@ -55,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->exec('UPDATE home_display_config SET is_default = FALSE');
             }
             
-            $stmt = $pdo->prepare('INSERT INTO home_display_config (year, quarter, source_year, source_quarter, is_default, active_quarter) VALUES (?, ?, ?, ?, ?, ?)');
-            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter]);
+            $stmt = $pdo->prepare('INSERT INTO home_display_config (year, quarter, source_year, source_quarter, is_default, active_quarter, default_year, default_quarter) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $default_year, $default_quarter]);
             
         } elseif ($action === 'edit' && $id) {
             // ตรวจสอบว่ามีการตั้งค่าซ้ำหรือไม่ (ยกเว้นรายการที่กำลังแก้ไข)
@@ -73,8 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->exec('UPDATE home_display_config SET is_default = FALSE');
             }
             
-            $stmt = $pdo->prepare('UPDATE home_display_config SET year=?, quarter=?, source_year=?, source_quarter=?, is_default=?, active_quarter=? WHERE id=?');
-            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $id]);
+            $stmt = $pdo->prepare('UPDATE home_display_config SET year=?, quarter=?, source_year=?, source_quarter=?, is_default=?, active_quarter=?, default_year=?, default_quarter=? WHERE id=?');
+            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $default_year, $default_quarter, $id]);
             
         } elseif ($action === 'delete' && $id) {
             $stmt = $pdo->prepare('DELETE FROM home_display_config WHERE id=?');
@@ -238,7 +240,7 @@ foreach ($configs as $cfg) {
                                                 <?php endif; ?>
                                             </div>
                                             <div class="flex justify-center space-x-1">
-                                                <button onclick="editConfig(<?= $config['id'] ?>, <?= $config['year'] ?>, <?= $config['quarter'] ?>, <?= $config['source_year'] ?>, <?= $config['source_quarter'] ?>, <?= isset($config['is_default']) && $config['is_default'] ? 'true' : 'false' ?>, <?= $config['active_quarter'] ?? 1 ?>)" 
+                                                <button onclick="editConfig(<?= $config['id'] ?>, <?= $config['year'] ?>, <?= $config['quarter'] ?>, <?= $config['source_year'] ?>, <?= $config['source_quarter'] ?>, <?= isset($config['is_default']) && $config['is_default'] ? 'true' : 'false' ?>, <?= $config['active_quarter'] ?? 1 ?>, <?= $config['default_year'] ?? 2568 ?>, <?= $config['default_quarter'] ?? 3 ?>)" 
                                                         class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-md text-xs transition-colors">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
@@ -332,12 +334,31 @@ foreach ($configs as $cfg) {
                             <i class="fas fa-cog mr-2 text-indigo-600"></i>
                             การตั้งค่าเริ่มต้น
                         </h4>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-4">
                             <div>
                                 <label class="flex items-center space-x-2">
                                     <input type="checkbox" name="is_default" id="add_is_default" value="1" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                                     <span class="text-sm text-gray-700">ตั้งเป็นค่าเริ่มต้น</span>
                                 </label>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">ปีเริ่มต้น</label>
+                                    <select name="default_year" id="add_default_year" class="select2-add w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <?php foreach ($years as $y): ?>
+                                        <option value="<?= $y['year'] ?>" <?= ($y['year'] == 2568) ? 'selected' : '' ?>><?= $y['year'] ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสเริ่มต้น</label>
+                                    <select name="default_quarter" id="add_default_quarter" class="select2-add w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="1">ไตรมาส 1</option>
+                                        <option value="2">ไตรมาส 2</option>
+                                        <option value="3" selected>ไตรมาส 3</option>
+                                        <option value="4">ไตรมาส 4</option>
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสที่แอคทีฟ</label>
@@ -432,12 +453,31 @@ foreach ($configs as $cfg) {
                             <i class="fas fa-cog mr-2 text-amber-600"></i>
                             การตั้งค่าเริ่มต้น
                         </h4>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-4">
                             <div>
                                 <label class="flex items-center space-x-2">
                                     <input type="checkbox" name="is_default" id="edit_is_default" value="1" class="rounded border-gray-300 text-amber-600 focus:ring-amber-500">
                                     <span class="text-sm text-gray-700">ตั้งเป็นค่าเริ่มต้น</span>
                                 </label>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">ปีเริ่มต้น</label>
+                                    <select name="default_year" id="edit_default_year" class="select2-edit w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                                        <?php foreach ($years as $y): ?>
+                                        <option value="<?= $y['year'] ?>"><?= $y['year'] ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสเริ่มต้น</label>
+                                    <select name="default_quarter" id="edit_default_quarter" class="select2-edit w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+                                        <option value="1">ไตรมาส 1</option>
+                                        <option value="2">ไตรมาส 2</option>
+                                        <option value="3">ไตรมาส 3</option>
+                                        <option value="4">ไตรมาส 4</option>
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสที่แอคทีฟ</label>
@@ -535,6 +575,8 @@ foreach ($configs as $cfg) {
         $('.select2-add').val(null).trigger('change');
         $('#add_is_default').prop('checked', false);
         $('#add_active_quarter').val(3).trigger('change');
+        $('#add_default_year').val(2568).trigger('change');
+        $('#add_default_quarter').val(3).trigger('change');
     }
 
     function openModalEdit() {
@@ -549,6 +591,8 @@ foreach ($configs as $cfg) {
         $('.select2-edit').val(null).trigger('change');
         $('#edit_is_default').prop('checked', false);
         $('#edit_active_quarter').val(3).trigger('change');
+        $('#edit_default_year').val(2568).trigger('change');
+        $('#edit_default_quarter').val(3).trigger('change');
     }
 
     function quickAdd(yearId, quarter) {
@@ -558,10 +602,12 @@ foreach ($configs as $cfg) {
         $('#add_source_quarter').val(quarter).trigger('change');
         $('#add_is_default').prop('checked', false);
         $('#add_active_quarter').val(3).trigger('change');
+        $('#add_default_year').val(2568).trigger('change');
+        $('#add_default_quarter').val(3).trigger('change');
         openModalAdd();
     }
 
-    function editConfig(id, year, quarter, source_year, source_quarter, is_default, active_quarter) {
+    function editConfig(id, year, quarter, source_year, source_quarter, is_default, active_quarter, default_year, default_quarter) {
         $('#edit_id').val(id);
         $('#edit_year').val(year).trigger('change');
         $('#edit_quarter').val(quarter).trigger('change');
@@ -569,6 +615,8 @@ foreach ($configs as $cfg) {
         $('#edit_source_quarter').val(source_quarter).trigger('change');
         $('#edit_is_default').prop('checked', is_default === 'true' || is_default === true);
         $('#edit_active_quarter').val(active_quarter || 3).trigger('change');
+        $('#edit_default_year').val(default_year || 2568).trigger('change');
+        $('#edit_default_quarter').val(default_quarter || 3).trigger('change');
         openModalEdit();
     }
 
