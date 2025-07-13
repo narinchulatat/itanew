@@ -127,6 +127,7 @@ foreach ($configs as $cfg) {
         .select2-container--default .select2-selection--single { height: 42px; line-height: 42px; border-radius: 0.5rem; }
         .select2-container--default .select2-selection--single .select2-selection__rendered { padding-left: 12px; }
         .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+        .select2-container.border-red-500 .select2-selection--single { border-color: #ef4444 !important; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -269,7 +270,7 @@ foreach ($configs as $cfg) {
     <!-- Modal Add -->
     <div id="modalAdd" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4" style="display:none;">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95">
-            <form method="post" id="addForm">
+            <form method="post" id="addForm" action="manage_home_display.php">
                 <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-2xl px-6 py-4 flex items-center justify-between">
                     <h3 class="text-xl font-bold text-white">เพิ่มการตั้งค่าใหม่</h3>
                     <button type="button" onclick="closeModalAdd()" class="text-white hover:text-gray-200 transition-colors">
@@ -387,7 +388,7 @@ foreach ($configs as $cfg) {
     <!-- Modal Edit -->
     <div id="modalEdit" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4" style="display:none;">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95">
-            <form method="post" id="editForm">
+            <form method="post" id="editForm" action="manage_home_display.php">
                 <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-t-2xl px-6 py-4 flex items-center justify-between">
                     <h3 class="text-xl font-bold text-white">แก้ไขการตั้งค่า</h3>
                     <button type="button" onclick="closeModalEdit()" class="text-white hover:text-gray-200 transition-colors">
@@ -518,6 +519,85 @@ foreach ($configs as $cfg) {
             allowClear: true
         });
         
+        // Add form submission handlers to ensure forms are properly submitted
+        $('#addForm').on('submit', function(e) {
+            console.log('Add form submitted');
+            
+            // Prevent any potential event bubbling issues
+            e.stopPropagation();
+            
+            // Check if required Select2 fields are filled
+            let isValid = true;
+            const requiredFields = ['#add_year', '#add_quarter', '#add_source_year', '#add_source_quarter'];
+            
+            requiredFields.forEach(function(fieldId) {
+                const value = $(fieldId).val();
+                if (!value || value === '') {
+                    isValid = false;
+                    $(fieldId).next('.select2-container').addClass('border-red-500');
+                } else {
+                    $(fieldId).next('.select2-container').removeClass('border-red-500');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'ข้อมูลไม่ครบถ้วน',
+                    text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                    icon: 'warning',
+                    confirmButtonText: 'ตกลง'
+                });
+                return false;
+            }
+            
+            // Show loading state
+            const submitButton = $(this).find('button[type="submit"]');
+            submitButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
+            
+            // Let the form submit normally
+            return true;
+        });
+        
+        $('#editForm').on('submit', function(e) {
+            console.log('Edit form submitted');
+            
+            // Prevent any potential event bubbling issues
+            e.stopPropagation();
+            
+            // Check if required Select2 fields are filled
+            let isValid = true;
+            const requiredFields = ['#edit_year', '#edit_quarter', '#edit_source_year', '#edit_source_quarter'];
+            
+            requiredFields.forEach(function(fieldId) {
+                const value = $(fieldId).val();
+                if (!value || value === '') {
+                    isValid = false;
+                    $(fieldId).next('.select2-container').addClass('border-red-500');
+                } else {
+                    $(fieldId).next('.select2-container').removeClass('border-red-500');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'ข้อมูลไม่ครบถ้วน',
+                    text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                    icon: 'warning',
+                    confirmButtonText: 'ตกลง'
+                });
+                return false;
+            }
+            
+            // Show loading state
+            const submitButton = $(this).find('button[type="submit"]');
+            submitButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
+            
+            // Let the form submit normally
+            return true;
+        });
+        
         // Handle success/error messages
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('success') === '1') {
@@ -577,6 +657,8 @@ foreach ($configs as $cfg) {
         $('#add_active_quarter').val(3).trigger('change');
         $('#add_default_year').val(2568).trigger('change');
         $('#add_default_quarter').val(3).trigger('change');
+        // Reset button state
+        $('#addForm button[type="submit"]').prop('disabled', false).html('<i class="fas fa-save mr-2"></i>บันทึก');
     }
 
     function openModalEdit() {
@@ -593,6 +675,8 @@ foreach ($configs as $cfg) {
         $('#edit_active_quarter').val(3).trigger('change');
         $('#edit_default_year').val(2568).trigger('change');
         $('#edit_default_quarter').val(3).trigger('change');
+        // Reset button state
+        $('#editForm button[type="submit"]').prop('disabled', false).html('<i class="fas fa-save mr-2"></i>บันทึก');
     }
 
     function quickAdd(yearId, quarter) {
