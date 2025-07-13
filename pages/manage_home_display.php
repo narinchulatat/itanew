@@ -11,7 +11,7 @@ require_once dirname(__DIR__) . '/db.php';
 // ตรวจสอบสิทธิ์ admin
 if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) {
     ob_end_clean(); // ล้าง output buffer
-    header('Location: ../login.php');
+    header('Location: login.php');
     exit();
 }
 
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $checkStmt->execute([$year, $quarter]);
             if ($checkStmt->fetchColumn() > 0) {
                 $pdo->rollback();
-                header('Location: manage_home_display.php?error=duplicate');
+                header('Location: index.php?page=manage_home_display&error=duplicate');
                 exit();
             }
             
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $checkStmt->execute([$year, $quarter, $id]);
             if ($checkStmt->fetchColumn() > 0) {
                 $pdo->rollback();
-                header('Location: manage_home_display.php?error=duplicate');
+                header('Location: index.php?page=manage_home_display&error=duplicate');
                 exit();
             }
             
@@ -86,12 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Commit transaction
         $pdo->commit();
         
-        header('Location: manage_home_display.php?success=1');
+        header('Location: index.php?page=manage_home_display&success=1');
         exit();
         
     } catch (Exception $e) {
         $pdo->rollback();
-        header('Location: manage_home_display.php?error=database');
+        header('Location: index.php?page=manage_home_display&error=database');
         exit();
     }
 }
@@ -270,7 +270,7 @@ foreach ($configs as $cfg) {
     <!-- Modal Add -->
     <div id="modalAdd" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4" style="display:none;">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95">
-            <form method="post" id="addForm" action="manage_home_display.php">
+            <form method="post" id="addForm" action="index.php?page=manage_home_display">
                 <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-2xl px-6 py-4 flex items-center justify-between">
                     <h3 class="text-xl font-bold text-white">เพิ่มการตั้งค่าใหม่</h3>
                     <button type="button" onclick="closeModalAdd()" class="text-white hover:text-gray-200 transition-colors">
@@ -388,7 +388,7 @@ foreach ($configs as $cfg) {
     <!-- Modal Edit -->
     <div id="modalEdit" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4" style="display:none;">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95">
-            <form method="post" id="editForm" action="manage_home_display.php">
+            <form method="post" id="editForm" action="index.php?page=manage_home_display">
                 <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-t-2xl px-6 py-4 flex items-center justify-between">
                     <h3 class="text-xl font-bold text-white">แก้ไขการตั้งค่า</h3>
                     <button type="button" onclick="closeModalEdit()" class="text-white hover:text-gray-200 transition-colors">
