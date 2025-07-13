@@ -22,18 +22,15 @@ foreach ($years as $y) {
     $yearMap[$y['id']] = $y['year'];
 }
 
-// เพิ่ม/แก้ไข/ลบ config
+// เพิ่ม/แก้ไข/ลบ config - Simplified logic
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ob_end_clean();
     
     $action = $_POST['action'] ?? '';
     $year = intval($_POST['year'] ?? 0);
-    $quarter = intval($_POST['quarter'] ?? 0);
-    $source_year = intval($_POST['source_year'] ?? 0);
-    $source_quarter = intval($_POST['source_quarter'] ?? 0);
-    $id = intval($_POST['id'] ?? 0);
     $is_default = isset($_POST['is_default']) ? 1 : 0;
-    $active_quarter = intval($_POST['active_quarter'] ?? $quarter);
+    $active_quarter = intval($_POST['active_quarter'] ?? 1);
+    $id = intval($_POST['id'] ?? 0);
     
     try {
         // เริ่ม transaction
@@ -41,19 +38,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($action === 'add') {
             // Validation
-            if ($year <= 0 || $quarter <= 0 || $source_year <= 0 || $source_quarter <= 0) {
-                throw new Exception('ข้อมูลไม่ครบถ้วน กรุณากรอกข้อมูลให้ครบ');
+            if ($year <= 0) {
+                throw new Exception('กรุณาเลือกปีที่จะแสดง');
             }
             
-            if ($quarter < 1 || $quarter > 4 || $source_quarter < 1 || $source_quarter > 4) {
+            if ($active_quarter < 1 || $active_quarter > 4) {
                 throw new Exception('ไตรมาสต้องอยู่ระหว่าง 1-4');
             }
             
-            // ตรวจสอบว่ามีการตั้งค่าซ้ำหรือไม่
-            $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ? AND quarter = ?');
-            $checkStmt->execute([$year, $quarter]);
+            // ตรวจสอบว่ามีการตั้งค่าสำหรับปีนี้อยู่แล้วหรือไม่
+            $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ?');
+            $checkStmt->execute([$year]);
             if ($checkStmt->fetchColumn() > 0) {
-                throw new Exception('มีการตั้งค่าสำหรับปีและไตรมาสนี้อยู่แล้ว');
+                throw new Exception('มีการตั้งค่าสำหรับปีนี้อยู่แล้ว');
             }
             
             // ถ้าตั้งเป็น default ให้ยกเลิก default อื่น ๆ
@@ -61,30 +58,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('UPDATE home_display_config SET is_default = 0')->execute();
             }
             
-            // หา default_year/default_quarter จาก year map
+            // หา default_year จาก year map
             $yearStmt = $pdo->prepare('SELECT year FROM years WHERE id = ?');
             $yearStmt->execute([$year]);
             $yearRow = $yearStmt->fetch();
             $default_year = $yearRow ? $yearRow['year'] : null;
             
+            // ตั้งค่าให้ compatibility fields ตามตรรกะใหม่
+            $quarter = $active_quarter;
+            $source_year = $year;
+            $source_quarter = $active_quarter;
+            $default_quarter = $active_quarter;
+            
             $stmt = $pdo->prepare('INSERT INTO home_display_config (year, quarter, source_year, source_quarter, is_default, default_year, default_quarter, active_quarter) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $default_year, $quarter, $active_quarter]);
+            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $default_year, $default_quarter, $active_quarter]);
             
         } elseif ($action === 'edit' && $id) {
             // Validation
-            if ($year <= 0 || $quarter <= 0 || $source_year <= 0 || $source_quarter <= 0) {
-                throw new Exception('ข้อมูลไม่ครบถ้วน กรุณากรอกข้อมูลให้ครบ');
+            if ($year <= 0) {
+                throw new Exception('กรุณาเลือกปีที่จะแสดง');
             }
             
-            if ($quarter < 1 || $quarter > 4 || $source_quarter < 1 || $source_quarter > 4) {
+            if ($active_quarter < 1 || $active_quarter > 4) {
                 throw new Exception('ไตรมาสต้องอยู่ระหว่าง 1-4');
             }
             
-            // ตรวจสอบว่ามีการตั้งค่าซ้ำหรือไม่ (ยกเว้นรายการที่กำลังแก้ไข)
-            $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ? AND quarter = ? AND id != ?');
-            $checkStmt->execute([$year, $quarter, $id]);
+            // ตรวจสอบว่ามีการตั้งค่าสำหรับปีนี้อยู่แล้วหรือไม่ (ยกเว้นรายการที่กำลังแก้ไข)
+            $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ? AND id != ?');
+            $checkStmt->execute([$year, $id]);
             if ($checkStmt->fetchColumn() > 0) {
-                throw new Exception('มีการตั้งค่าสำหรับปีและไตรมาสนี้อยู่แล้ว');
+                throw new Exception('มีการตั้งค่าสำหรับปีนี้อยู่แล้ว');
             }
             
             // ถ้าตั้งเป็น default ให้ยกเลิก default อื่น ๆ
@@ -92,14 +95,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare('UPDATE home_display_config SET is_default = 0 WHERE id != ?')->execute([$id]);
             }
             
-            // หา default_year/default_quarter จาก year map
+            // หา default_year จาก year map
             $yearStmt = $pdo->prepare('SELECT year FROM years WHERE id = ?');
             $yearStmt->execute([$year]);
             $yearRow = $yearStmt->fetch();
             $default_year = $yearRow ? $yearRow['year'] : null;
             
+            // ตั้งค่าให้ compatibility fields ตามตรรกะใหม่
+            $quarter = $active_quarter;
+            $source_year = $year;
+            $source_quarter = $active_quarter;
+            $default_quarter = $active_quarter;
+            
             $stmt = $pdo->prepare('UPDATE home_display_config SET year=?, quarter=?, source_year=?, source_quarter=?, is_default=?, default_year=?, default_quarter=?, active_quarter=? WHERE id=?');
-            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $default_year, $quarter, $active_quarter, $id]);
+            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $default_year, $default_quarter, $active_quarter, $id]);
             
         } elseif ($action === 'delete' && $id) {
             if ($id <= 0) {
@@ -128,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ดึง config ทั้งหมด
-$configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, quarter ASC')->fetchAll(PDO::FETCH_ASSOC);
+$configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC')->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -145,6 +154,7 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
         body { font-family: 'Sarabun', sans-serif; }
         .gradient-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .form-container { max-width: 400px; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -205,10 +215,8 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ปีที่แสดง</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ไตรมาสที่แสดง</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ข้อมูลจากปี</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ข้อมูลจากไตรมาส</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ปีที่จะแสดง</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ไตรมาสที่จะเปิด</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ค่าเริ่มต้น</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัพเดต</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
@@ -217,7 +225,7 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
                     <tbody class="bg-white divide-y divide-gray-200">
                         <?php if (empty($configs)): ?>
                             <tr>
-                                <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                                <td colspan="5" class="px-6 py-12 text-center text-gray-500">
                                     <div class="flex flex-col items-center">
                                         <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
                                         <p class="text-lg font-medium">ยังไม่มีการตั้งค่า</p>
@@ -235,17 +243,7 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                            ไตรมาส <?= htmlspecialchars($config['quarter']) ?>
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            <?= htmlspecialchars($yearMap[$config['source_year']] ?? 'ไม่ระบุ') ?>
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                            ไตรมาส <?= htmlspecialchars($config['source_quarter']) ?>
+                                            ไตรมาส <?= htmlspecialchars($config['active_quarter'] ?? 1) ?>
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -264,7 +262,7 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
                                         <?= date('d/m/Y H:i', strtotime($config['updated_at'])) ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <button onclick="editConfig(<?= $config['id'] ?>, <?= $config['year'] ?>, <?= $config['quarter'] ?>, <?= $config['source_year'] ?>, <?= $config['source_quarter'] ?>, <?= isset($config['is_default']) && $config['is_default'] ? 'true' : 'false' ?>, <?= $config['active_quarter'] ?? $config['quarter'] ?>)" 
+                                        <button onclick="editConfig(<?= $config['id'] ?>, <?= $config['year'] ?>, <?= isset($config['is_default']) && $config['is_default'] ? 'true' : 'false' ?>, <?= $config['active_quarter'] ?? 1 ?>)" 
                                                 class="text-indigo-600 hover:text-indigo-900 mr-3">
                                             <i class="fas fa-edit"></i> แก้ไข
                                         </button>
@@ -287,98 +285,57 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
                 <i class="fas fa-info-circle mr-2"></i>วิธีการใช้งาน
             </h3>
             <div class="text-sm text-blue-800 space-y-2">
-                <p><strong>ตัวอย่าง:</strong> หากต้องการให้ปี 2568 ไตรมาส 2 แสดงข้อมูลจากปี 2568 ไตรมาส 3</p>
-                <p>• <strong>ปีที่แสดง:</strong> 2568, <strong>ไตรมาสที่แสดง:</strong> 2</p>
-                <p>• <strong>ข้อมูลจากปี:</strong> 2568, <strong>ข้อมูลจากไตรมาส:</strong> 3</p>
-                <p class="text-blue-600 font-medium">ระบบจะตรวจสอบความซ้ำซ้อนโดยอัตโนมัติ</p>
+                <p><strong>ปีที่จะแสดง:</strong> ปีที่จะแสดงในหน้า Home และเป็นปีของข้อมูลที่จะใช้</p>
+                <p><strong>ตั้งเป็นค่าเริ่มต้น:</strong> การตั้งค่านี้เป็นค่าเริ่มต้นเมื่อเข้าหน้าแรก</p>
+                <p><strong>ไตรมาสที่จะเปิด:</strong> tab ไตรมาสที่จะ active เมื่อเข้าหน้าแรก</p>
+                <p class="text-blue-600 font-medium">ระบบจะตรวจสอบความซ้ำซ้อนโดยอัตโนมัติ (หนึ่งปีต่อหนึ่งการตั้งค่า)</p>
             </div>
         </div>
     </div>
 
     <!-- Add Modal -->
     <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md form-container">
             <form id="addForm" method="post">
                 <div class="bg-blue-500 text-white px-6 py-4 rounded-t-lg">
-                    <h3 class="text-lg font-semibold">เพิ่มการตั้งค่าใหม่</h3>
+                    <h3 class="text-lg font-semibold">แก้ไขการตั้งค่า</h3>
                 </div>
-                <div class="p-6 space-y-4">
+                <div class="p-8 space-y-6">
                     <input type="hidden" name="action" value="add">
                     
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ปีที่จะแสดง *</label>
-                            <select name="year" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                <option value="">เลือกปี</option>
-                                <?php foreach ($years as $year): ?>
-                                    <option value="<?= $year['id'] ?>"><?= $year['year'] ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสที่จะแสดง *</label>
-                            <select name="quarter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                <option value="">เลือกไตรมาส</option>
-                                <option value="1">ไตรมาส 1</option>
-                                <option value="2">ไตรมาส 2</option>
-                                <option value="3">ไตรมาส 3</option>
-                                <option value="4">ไตรมาส 4</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-3">ปีที่จะแสดง:</label>
+                        <select name="year" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" required>
+                            <option value="">เลือกปี</option>
+                            <?php foreach ($years as $year): ?>
+                                <option value="<?= $year['id'] ?>"><?= $year['year'] ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     
-                    <div class="border-t pt-4">
-                        <h4 class="text-sm font-medium text-gray-700 mb-3">ข้อมูลที่จะนำมาแสดง</h4>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">จากปี *</label>
-                                <select name="source_year" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                    <option value="">เลือกปี</option>
-                                    <?php foreach ($years as $year): ?>
-                                        <option value="<?= $year['id'] ?>"><?= $year['year'] ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">จากไตรมาส *</label>
-                                <select name="source_quarter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-                                    <option value="">เลือกไตรมาส</option>
-                                    <option value="1">ไตรมาส 1</option>
-                                    <option value="2">ไตรมาส 2</option>
-                                    <option value="3">ไตรมาส 3</option>
-                                    <option value="4">ไตรมาส 4</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="flex items-center space-x-3">
+                            <input type="checkbox" name="is_default" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <span class="text-sm font-medium text-gray-700">ตั้งเป็นค่าเริ่มต้น</span>
+                        </label>
                     </div>
                     
-                    <div class="border-t pt-4">
-                        <h4 class="text-sm font-medium text-gray-700 mb-3">ตัวเลือกเพิ่มเติม</h4>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="flex items-center">
-                                    <input type="checkbox" name="is_default" class="rounded text-blue-600 focus:ring-blue-500 mr-2">
-                                    <span class="text-sm font-medium text-gray-700">ตั้งเป็นค่าเริ่มต้น</span>
-                                </label>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสที่จะเปิด</label>
-                                <select name="active_quarter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="1">ไตรมาส 1</option>
-                                    <option value="2">ไตรมาส 2</option>
-                                    <option value="3">ไตรมาส 3</option>
-                                    <option value="4">ไตรมาส 4</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-3">ไตรมาสที่จะเปิด:</label>
+                        <select name="active_quarter" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" required>
+                            <option value="1">ไตรมาส 1</option>
+                            <option value="2">ไตรมาส 2</option>
+                            <option value="3" selected>ไตรมาส 3</option>
+                            <option value="4">ไตรมาส 4</option>
+                        </select>
                     </div>
                 </div>
                 <div class="bg-gray-50 px-6 py-4 rounded-b-lg flex justify-end space-x-3">
-                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors">
+                    <button type="button" onclick="closeAddModal()" class="px-6 py-2 text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors">
                         ยกเลิก
                     </button>
-                    <button type="submit" class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors">
-                        <i class="fas fa-save mr-2"></i>บันทึก
+                    <button type="submit" class="px-8 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors">
+                        บันทึก
                     </button>
                 </div>
             </form>
@@ -387,89 +344,48 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
 
     <!-- Edit Modal -->
     <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md form-container">
             <form id="editForm" method="post">
                 <div class="bg-yellow-500 text-white px-6 py-4 rounded-t-lg">
                     <h3 class="text-lg font-semibold">แก้ไขการตั้งค่า</h3>
                 </div>
-                <div class="p-6 space-y-4">
+                <div class="p-8 space-y-6">
                     <input type="hidden" name="action" value="edit">
                     <input type="hidden" name="id" id="edit_id">
                     
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ปีที่จะแสดง *</label>
-                            <select name="year" id="edit_year" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500" required>
-                                <option value="">เลือกปี</option>
-                                <?php foreach ($years as $year): ?>
-                                    <option value="<?= $year['id'] ?>"><?= $year['year'] ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสที่จะแสดง *</label>
-                            <select name="quarter" id="edit_quarter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500" required>
-                                <option value="">เลือกไตรมาส</option>
-                                <option value="1">ไตรมาส 1</option>
-                                <option value="2">ไตรมาส 2</option>
-                                <option value="3">ไตรมาส 3</option>
-                                <option value="4">ไตรมาส 4</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-3">ปีที่จะแสดง:</label>
+                        <select name="year" id="edit_year" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-base" required>
+                            <option value="">เลือกปี</option>
+                            <?php foreach ($years as $year): ?>
+                                <option value="<?= $year['id'] ?>"><?= $year['year'] ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     
-                    <div class="border-t pt-4">
-                        <h4 class="text-sm font-medium text-gray-700 mb-3">ข้อมูลที่จะนำมาแสดง</h4>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">จากปี *</label>
-                                <select name="source_year" id="edit_source_year" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500" required>
-                                    <option value="">เลือกปี</option>
-                                    <?php foreach ($years as $year): ?>
-                                        <option value="<?= $year['id'] ?>"><?= $year['year'] ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">จากไตรมาส *</label>
-                                <select name="source_quarter" id="edit_source_quarter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500" required>
-                                    <option value="">เลือกไตรมาส</option>
-                                    <option value="1">ไตรมาส 1</option>
-                                    <option value="2">ไตรมาส 2</option>
-                                    <option value="3">ไตรมาส 3</option>
-                                    <option value="4">ไตรมาส 4</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="flex items-center space-x-3">
+                            <input type="checkbox" name="is_default" id="edit_is_default" class="w-5 h-5 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500">
+                            <span class="text-sm font-medium text-gray-700">ตั้งเป็นค่าเริ่มต้น</span>
+                        </label>
                     </div>
                     
-                    <div class="border-t pt-4">
-                        <h4 class="text-sm font-medium text-gray-700 mb-3">ตัวเลือกเพิ่มเติม</h4>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="flex items-center">
-                                    <input type="checkbox" name="is_default" id="edit_is_default" class="rounded text-yellow-600 focus:ring-yellow-500 mr-2">
-                                    <span class="text-sm font-medium text-gray-700">ตั้งเป็นค่าเริ่มต้น</span>
-                                </label>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสที่จะเปิด</label>
-                                <select name="active_quarter" id="edit_active_quarter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                                    <option value="1">ไตรมาส 1</option>
-                                    <option value="2">ไตรมาส 2</option>
-                                    <option value="3">ไตรมาส 3</option>
-                                    <option value="4">ไตรมาส 4</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-3">ไตรมาสที่จะเปิด:</label>
+                        <select name="active_quarter" id="edit_active_quarter" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-base" required>
+                            <option value="1">ไตรมาส 1</option>
+                            <option value="2">ไตรมาส 2</option>
+                            <option value="3">ไตรมาส 3</option>
+                            <option value="4">ไตรมาส 4</option>
+                        </select>
                     </div>
                 </div>
                 <div class="bg-gray-50 px-6 py-4 rounded-b-lg flex justify-end space-x-3">
-                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors">
+                    <button type="button" onclick="closeEditModal()" class="px-6 py-2 text-gray-600 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors">
                         ยกเลิก
                     </button>
-                    <button type="submit" class="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors">
-                        <i class="fas fa-save mr-2"></i>บันทึก
+                    <button type="submit" class="px-8 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors">
+                        บันทึก
                     </button>
                 </div>
             </form>
@@ -496,7 +412,7 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
             if (urlParams.get('error') === 'duplicate') {
                 Swal.fire({
                     title: 'ข้อผิดพลาด!',
-                    text: 'มีการตั้งค่าสำหรับปีและไตรมาสนี้อยู่แล้ว',
+                    text: 'มีการตั้งค่าสำหรับปีนี้อยู่แล้ว',
                     icon: 'error',
                     confirmButtonText: 'ตกลง'
                 });
@@ -534,14 +450,11 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
             document.getElementById('editForm').reset();
         }
 
-        function editConfig(id, year, quarter, source_year, source_quarter, is_default, active_quarter) {
+        function editConfig(id, year, is_default, active_quarter) {
             document.getElementById('edit_id').value = id;
             document.getElementById('edit_year').value = year;
-            document.getElementById('edit_quarter').value = quarter;
-            document.getElementById('edit_source_year').value = source_year;
-            document.getElementById('edit_source_quarter').value = source_quarter;
             document.getElementById('edit_is_default').checked = is_default === 'true';
-            document.getElementById('edit_active_quarter').value = active_quarter || quarter;
+            document.getElementById('edit_active_quarter').value = active_quarter || 1;
             openEditModal();
         }
 
@@ -573,11 +486,9 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
         // Form validation
         document.getElementById('addForm').addEventListener('submit', function(e) {
             const year = this.querySelector('[name="year"]').value;
-            const quarter = this.querySelector('[name="quarter"]').value;
-            const source_year = this.querySelector('[name="source_year"]').value;
-            const source_quarter = this.querySelector('[name="source_quarter"]').value;
+            const active_quarter = this.querySelector('[name="active_quarter"]').value;
             
-            if (!year || !quarter || !source_year || !source_quarter) {
+            if (!year || !active_quarter) {
                 e.preventDefault();
                 Swal.fire({
                     title: 'ข้อมูลไม่ครบถ้วน',
@@ -586,22 +497,14 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
                     confirmButtonText: 'ตกลง'
                 });
                 return false;
-            }
-            
-            // Set default active_quarter if not specified
-            const active_quarter = this.querySelector('[name="active_quarter"]').value;
-            if (!active_quarter) {
-                this.querySelector('[name="active_quarter"]').value = quarter;
             }
         });
 
         document.getElementById('editForm').addEventListener('submit', function(e) {
             const year = this.querySelector('[name="year"]').value;
-            const quarter = this.querySelector('[name="quarter"]').value;
-            const source_year = this.querySelector('[name="source_year"]').value;
-            const source_quarter = this.querySelector('[name="source_quarter"]').value;
+            const active_quarter = this.querySelector('[name="active_quarter"]').value;
             
-            if (!year || !quarter || !source_year || !source_quarter) {
+            if (!year || !active_quarter) {
                 e.preventDefault();
                 Swal.fire({
                     title: 'ข้อมูลไม่ครบถ้วน',
@@ -610,12 +513,6 @@ $configs = $pdo->query('SELECT * FROM home_display_config ORDER BY year DESC, qu
                     confirmButtonText: 'ตกลง'
                 });
                 return false;
-            }
-            
-            // Set default active_quarter if not specified
-            const active_quarter = this.querySelector('[name="active_quarter"]').value;
-            if (!active_quarter) {
-                this.querySelector('[name="active_quarter"]').value = quarter;
             }
         });
 
