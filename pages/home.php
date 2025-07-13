@@ -87,9 +87,17 @@ if ($defaultConfig && isset($defaultConfig['default_year']) && isset($defaultCon
     $defaultQuarter = $defaultConfig['default_quarter'];
 }
 
-// กำหนดปี/ไตรมาสที่เลือก (ใช้ year value แทน id)
-$selectedYearValue = intval($_GET['year']);
-$selectedQuarter = intval($_GET['quarter']);
+// รับค่าจาก URL หรือใช้ค่าเริ่มต้น
+$selectedYearValue = intval($_GET['year'] ?? 0);
+$selectedQuarter = intval($_GET['quarter'] ?? 0);
+
+// ถ้าไม่มีค่าจาก URL ให้ใช้ค่าเริ่มต้น
+if (!$selectedYearValue) {
+    $selectedYearValue = $defaultYear;
+}
+if (!$selectedQuarter) {
+    $selectedQuarter = $defaultQuarter;
+}
 
 // หา year_id จาก year value
 $selectedYearId = null;
@@ -336,7 +344,7 @@ $hasActiveConfigs = count($homeConfigs) > 0;
 <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex flex-wrap gap-4 items-center">
-            <form method="get" class="flex gap-2 items-center">
+            <form method="get" class="flex gap-2 items-center" id="yearQuarterForm">
                 <input type="hidden" name="page" value="home">
                 <label class="font-semibold text-gray-700">เลือกปี:</label>
                 <select name="year" class="select2 w-32">
@@ -356,9 +364,6 @@ $hasActiveConfigs = count($homeConfigs) > 0;
                         </option>
                     <?php endfor; ?>
                 </select>
-                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors">
-                    <i class="fas fa-search mr-2"></i>แสดงผล
-                </button>
             </form>
         </div>
     </div>
@@ -556,8 +561,37 @@ window.addEventListener('DOMContentLoaded', async function() {
 });
 
 // Handle form submission
-document.querySelector('form').addEventListener('submit', function(e) {
+document.querySelector('#yearQuarterForm').addEventListener('submit', function(e) {
     // Clear cache when changing year
     dataCache.clear();
+});
+
+// Handle year selection change
+document.querySelector('select[name="year"]').addEventListener('change', function(e) {
+    const selectedYear = this.value;
+    // Clear cache for new year
+    dataCache.clear();
+    
+    // Submit form to update the page data for the new year
+    this.form.submit();
+});
+
+// Handle quarter selection change
+document.querySelector('select[name="quarter"]').addEventListener('change', function(e) {
+    const selectedQuarter = parseInt(this.value);
+    
+    // Switch to the selected quarter tab
+    const tabToShow = 'tab_' + selectedQuarter;
+    const buttonToActivate = document.querySelector(`button[onclick*="showTab('${tabToShow}'"]`);
+    
+    if (buttonToActivate) {
+        showTab(tabToShow, buttonToActivate, selectedQuarter);
+    }
+    
+    // Update the URL
+    const url = new URL(window.location);
+    url.searchParams.set('year', currentYear);
+    url.searchParams.set('quarter', selectedQuarter);
+    window.history.replaceState({}, '', url);
 });
 </script>
