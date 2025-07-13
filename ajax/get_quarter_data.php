@@ -50,19 +50,25 @@ $configStmt = $pdo->prepare("SELECT * FROM home_display_config WHERE year = ? AN
 $configStmt->execute([$year_id, $quarter]);
 $config = $configStmt->fetch();
 
+// หา year map สำหรับการแปลง id เป็น year
+$years = $pdo->query("SELECT id, year FROM years")->fetchAll();
+$yearMap = array();
+foreach ($years as $y) {
+    $yearMap[$y["id"]] = $y["year"];
+}
+
 if ($config) {
-    $years = $pdo->query("SELECT id, year FROM years")->fetchAll();
-    $yearMap = array();
-    foreach ($years as $y) {
-        $yearMap[$y["id"]] = $y["year"];
-    }
+    // ใช้ข้อมูลตาม config
     $sourceYearId = $config["source_year"];
     $sourceQuarter = $config["source_quarter"];
     $sourceYearValue = $yearMap[$sourceYearId] ?? $yearValue;
+    $isConfigured = true;
 } else {
+    // ใช้ข้อมูลจริง
     $sourceYearId = $year_id;
     $sourceQuarter = $quarter;
     $sourceYearValue = $yearValue;
+    $isConfigured = false;
 }
 
 // ดึงข้อมูลหมวดหมู่
@@ -201,6 +207,7 @@ $statsHtml .= "</div>";
 $statsHtml .= "</div>";
 $statsHtml .= "</div>";
 $statsHtml .= "</div>";
+
 // เพิ่มข้อมูลสถิติรายเดือนถ้ามีข้อมูล
 if ($stats["document_count"] > 0) {
     $monthlyStmt = $pdo->prepare("SELECT 
@@ -214,11 +221,18 @@ if ($stats["document_count"] > 0) {
     ORDER BY month");
     $monthlyStmt->execute([$sourceYearId, $sourceQuarter]);
     $monthlyData = $monthlyStmt->fetchAll();
+    
     if (!empty($monthlyData)) {
         $statsHtml .= "<div class=\"bg-white border border-gray-200 rounded-lg p-4 mb-6\">";
         $statsHtml .= "<h4 class=\"text-lg font-semibold text-gray-900 mb-4\">การอัปโหลดรายเดือน</h4>";
-        $statsHtml .= "<div class=\"grid grid-cols-1 md:grid-cols-".count($monthlyData)." gap-4\">";
-        $monthNames = array(1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม', 4 => 'เมษายน', 5 => 'พฤษภาคม', 6 => 'มิถุนายน', 7 => 'กรกฎาคม', 8 => 'สิงหาคม', 9 => 'กันยายน', 10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม');
+        $statsHtml .= "<div class=\"grid grid-cols-1 md:grid-cols-".min(count($monthlyData), 4)." gap-4\">";
+        
+        $monthNames = array(
+            1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม', 4 => 'เมษายน', 
+            5 => 'พฤษภาคม', 6 => 'มิถุนายน', 7 => 'กรกฎาคม', 8 => 'สิงหาคม', 
+            9 => 'กันยายน', 10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม'
+        );
+        
         foreach ($monthlyData as $month) {
             $statsHtml .= "<div class=\"text-center\">";
             $statsHtml .= "<div class=\"bg-blue-100 rounded-lg p-3\">";
@@ -232,8 +246,22 @@ if ($stats["document_count"] > 0) {
     }
 }
 
-// รวมผลลัพธ์: แสดงสถิติก่อน แล้วตามด้วยหมวดหมู่/เอกสาร
-// ไม่ต้องแสดงลิงก์จัดการการตั้งค่าใน AJAX output
+$statsHtml .= "</div>";
 
-echo $output;
+// รวมผลลัพธ์: แสดงสถิติก่อน แล้วตามด้วยหมวดหมู่/เอกสาร
+// เพิ่ม indicator ถ้าข้อมูลถูก configure
+$configIndicator = "";
+if ($isConfigured) {
+    $configIndicator = "<div class=\"mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg\">";
+    $configIndicator .= "<div class=\"flex items-center\">";
+    $configIndicator .= "<i class=\"fas fa-info-circle text-amber-500 mr-2\"></i>";
+    $configIndicator .= "<span class=\"text-amber-800 font-medium\">การแสดงผลถูกปรับแต่ง:</span>";
+    $configIndicator .= "<span class=\"text-amber-700 ml-2\">";
+    $configIndicator .= "ข้อมูลที่แสดงในปี $yearValue ไตรมาส $quarter มาจากข้อมูลจริงของปี $sourceYearValue ไตรมาส $sourceQuarter";
+    $configIndicator .= "</span>";
+    $configIndicator .= "</div>";
+    $configIndicator .= "</div>";
+}
+
+echo $configIndicator . $statsHtml . $output;
 ?>

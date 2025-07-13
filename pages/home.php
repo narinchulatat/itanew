@@ -77,19 +77,35 @@ foreach ($homeConfigs as $config) {
     }
 }
 
-// กำหนดค่าเริ่มต้น
+// กำหนดค่าเริ่มต้น - ถ้าไม่มี config ให้ใช้ค่าเริ่มต้น
 $defaultYear = 2568; // ค่าเริ่มต้นของปี
 $defaultQuarter = 3; // ค่าเริ่มต้นของไตรมาส
+$defaultActiveQuarter = 3; // ไตรมาสที่จะแสดงเป็น active tab
 
 // ใช้ค่าจากการตั้งค่าเริ่มต้นถ้ามี
-if ($defaultConfig && isset($defaultConfig['default_year']) && isset($defaultConfig['default_quarter'])) {
-    $defaultYear = $defaultConfig['default_year'];
-    $defaultQuarter = $defaultConfig['default_quarter'];
+if ($defaultConfig) {
+    if (isset($defaultConfig['default_year']) && $defaultConfig['default_year']) {
+        $defaultYear = $defaultConfig['default_year'];
+    }
+    if (isset($defaultConfig['default_quarter']) && $defaultConfig['default_quarter']) {
+        $defaultQuarter = $defaultConfig['default_quarter'];
+    }
+    if (isset($defaultConfig['active_quarter']) && $defaultConfig['active_quarter']) {
+        $defaultActiveQuarter = $defaultConfig['active_quarter'];
+    }
 }
 
 // กำหนดปี/ไตรมาสที่เลือก (ใช้ year value แทน id)
-$selectedYearValue = intval($_GET['year']);
-$selectedQuarter = intval($_GET['quarter']);
+$selectedYearValue = intval($_GET['year'] ?? 0);
+$selectedQuarter = intval($_GET['quarter'] ?? 0);
+
+// ถ้าไม่มีการเลือก ให้ใช้ค่าเริ่มต้น
+if (!$selectedYearValue) {
+    $selectedYearValue = $defaultYear;
+}
+if (!$selectedQuarter) {
+    $selectedQuarter = $defaultActiveQuarter;
+}
 
 // หา year_id จาก year value
 $selectedYearId = null;
@@ -528,11 +544,20 @@ async function showTab(tabId, buttonElement, quarter) {
         contentDiv.dataset.loaded = 'true';
     }
     
-    // Update URL without page reload
-    const url = new URL(window.location);
-    url.searchParams.set('year', currentYear);
-    url.searchParams.set('quarter', quarter);
-    window.history.replaceState({}, '', url);
+    // Update URL without page reload - but only if quarter is different from current
+    const currentQuarter = <?= $selectedQuarter ?>;
+    if (quarter != currentQuarter) {
+        const url = new URL(window.location);
+        url.searchParams.set('year', currentYear);
+        url.searchParams.set('quarter', quarter);
+        window.history.replaceState({}, '', url);
+        
+        // Update the quarter dropdown to reflect the change
+        const quarterSelect = document.querySelector('select[name="quarter"]');
+        if (quarterSelect) {
+            quarterSelect.value = quarter;
+        }
+    }
 }
 
 // โหลดข้อมูลเริ่มต้น
@@ -557,7 +582,33 @@ window.addEventListener('DOMContentLoaded', async function() {
 
 // Handle form submission
 document.querySelector('form').addEventListener('submit', function(e) {
-    // Clear cache when changing year
+    // Clear cache when changing year/quarter
     dataCache.clear();
+});
+
+// Handle year selection change
+document.querySelector('select[name="year"]').addEventListener('change', function() {
+    const selectedYear = this.value;
+    if (selectedYear) {
+        // When year changes, go to the current active quarter or default
+        const currentQuarter = <?= $selectedQuarter ?>;
+        const url = new URL(window.location);
+        url.searchParams.set('year', selectedYear);
+        url.searchParams.set('quarter', currentQuarter);
+        window.location.href = url.toString();
+    }
+});
+
+// Handle quarter selection change
+document.querySelector('select[name="quarter"]').addEventListener('change', function() {
+    const selectedQuarter = this.value;
+    if (selectedQuarter) {
+        // When quarter changes, keep the current year and switch to selected quarter
+        const currentYear = <?= $selectedYearValue ?>;
+        const url = new URL(window.location);
+        url.searchParams.set('year', currentYear);
+        url.searchParams.set('quarter', selectedQuarter);
+        window.location.href = url.toString();
+    }
 });
 </script>
