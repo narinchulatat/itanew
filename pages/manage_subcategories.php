@@ -74,8 +74,7 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 
 <style>
 /* DataTables Pagination Styling */
@@ -309,7 +308,7 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="year_id" class="block text-sm font-medium text-gray-700 mb-2">ปี:</label>
-                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
+                            <select class="w-full h-12 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
                                     id="year_id" 
                                     name="year_id" 
                                     required onchange="loadCategoriesForYearQuarter()">
@@ -321,7 +320,7 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                         <div>
                             <label for="quarter" class="block text-sm font-medium text-gray-700 mb-2">ไตรมาส:</label>
-                            <select class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
+                            <select class="w-full h-12 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
                                     id="quarter" 
                                     name="quarter" 
                                     required onchange="loadCategoriesForYearQuarter()">
@@ -336,7 +335,7 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
                     
                     <div>
                         <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">หมวดหมู่หลัก</label>
-                        <select class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 select2-dropdown" 
+                        <select class="w-full h-12 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
                                 id="category_id" 
                                 name="category_id" 
                                 required>
@@ -534,13 +533,6 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
             resetForm();
         });
 
-        // เพิ่ม Select2 ให้ dropdown หมวดหมู่หลัก
-        $('#category_id').select2({
-            dropdownParent: $('#subcategoryModal'),
-            width: '100%',
-            minimumResultsForSearch: 10,
-            placeholder: 'เลือกหมวดหมู่หลัก',
-            allowClear: true
-        });
+
     });
 </script>
