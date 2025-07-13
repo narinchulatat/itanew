@@ -39,17 +39,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = intval($_POST['id'] ?? 0);
     
     try {
-        // Validate input data
-        if ($action === 'add' || $action === 'edit') {
-            if (!$year || !$quarter || !$source_year || !$source_quarter) {
-                throw new Exception('ข้อมูลไม่ครบถ้วน กรุณากรอกข้อมูลให้ครบทุกช่อง');
-            }
-            
-            if ($quarter < 1 || $quarter > 4 || $source_quarter < 1 || $source_quarter > 4) {
-                throw new Exception('ไตรมาสต้องอยู่ในช่วง 1-4 เท่านั้น');
-            }
-        }
-        
         // เริ่ม transaction
         $pdo->beginTransaction();
         
@@ -69,20 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $stmt = $pdo->prepare('INSERT INTO home_display_config (year, quarter, source_year, source_quarter, is_default, active_quarter, default_year, default_quarter) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-            $result = $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $default_year, $default_quarter]);
-            
-            if (!$result) {
-                throw new Exception('ไม่สามารถเพิ่มข้อมูลได้');
-            }
+            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $default_year, $default_quarter]);
             
         } elseif ($action === 'edit' && $id) {
-            // ตรวจสอบว่ารายการที่จะแก้ไขมีอยู่จริงหรือไม่
-            $existStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE id = ?');
-            $existStmt->execute([$id]);
-            if ($existStmt->fetchColumn() == 0) {
-                throw new Exception('ไม่พบรายการที่จะแก้ไข');
-            }
-            
             // ตรวจสอบว่ามีการตั้งค่าซ้ำหรือไม่ (ยกเว้นรายการที่กำลังแก้ไข)
             $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ? AND quarter = ? AND id != ?');
             $checkStmt->execute([$year, $quarter, $id]);
@@ -98,26 +76,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $stmt = $pdo->prepare('UPDATE home_display_config SET year=?, quarter=?, source_year=?, source_quarter=?, is_default=?, active_quarter=?, default_year=?, default_quarter=? WHERE id=?');
-            $result = $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $default_year, $default_quarter, $id]);
-            
-            if (!$result) {
-                throw new Exception('ไม่สามารถแก้ไขข้อมูลได้');
-            }
+            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $default_year, $default_quarter, $id]);
             
         } elseif ($action === 'delete' && $id) {
-            // ตรวจสอบว่ารายการที่จะลบมีอยู่จริงหรือไม่
-            $existStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE id = ?');
-            $existStmt->execute([$id]);
-            if ($existStmt->fetchColumn() == 0) {
-                throw new Exception('ไม่พบรายการที่จะลบ');
-            }
-            
             $stmt = $pdo->prepare('DELETE FROM home_display_config WHERE id=?');
-            $result = $stmt->execute([$id]);
-            
-            if (!$result) {
-                throw new Exception('ไม่สามารถลบข้อมูลได้');
-            }
+            $stmt->execute([$id]);
         }
         
         // Commit transaction
@@ -127,17 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
         
     } catch (Exception $e) {
-        // Rollback transaction
-        if ($pdo->inTransaction()) {
-            $pdo->rollback();
-        }
-        
-        // Log error
-        if (function_exists('logDatabaseError')) {
-            logDatabaseError($e->getMessage(), 'manage_home_display.php - Action: ' . $action);
-        }
-        
-        header('Location: index.php?page=manage_home_display&error=database&msg=' . urlencode($e->getMessage()));
+        $pdo->rollback();
+        header('Location: index.php?page=manage_home_display&error=database');
         exit();
     }
 }
@@ -675,19 +629,14 @@ foreach ($configs as $cfg) {
         }
         
         if (urlParams.get('error') === 'database') {
-            let errorMsg = 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล';
-            const msgParam = urlParams.get('msg');
-            if (msgParam) {
-                errorMsg += ': ' + decodeURIComponent(msgParam);
-            }
-            
             Swal.fire({
                 title: 'ผิดพลาด!',
-                text: errorMsg,
+                text: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล',
                 icon: 'error',
-                timer: 5000,
-                showConfirmButton: true,
-                confirmButtonText: 'ตกลง'
+                timer: 3000,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
             });
             // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
