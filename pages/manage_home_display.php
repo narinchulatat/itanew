@@ -127,6 +127,7 @@ foreach ($configs as $cfg) {
         .select2-container--default .select2-selection--single { height: 42px; line-height: 42px; border-radius: 0.5rem; }
         .select2-container--default .select2-selection--single .select2-selection__rendered { padding-left: 12px; }
         .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+        .select2-container.border-red-500 .select2-selection--single { border-color: #ef4444 !important; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -522,6 +523,9 @@ foreach ($configs as $cfg) {
         $('#addForm').on('submit', function(e) {
             console.log('Add form submitted');
             
+            // Prevent any potential event bubbling issues
+            e.stopPropagation();
+            
             // Check if required Select2 fields are filled
             let isValid = true;
             const requiredFields = ['#add_year', '#add_quarter', '#add_source_year', '#add_source_quarter'];
@@ -538,9 +542,18 @@ foreach ($configs as $cfg) {
             
             if (!isValid) {
                 e.preventDefault();
-                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                Swal.fire({
+                    title: 'ข้อมูลไม่ครบถ้วน',
+                    text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                    icon: 'warning',
+                    confirmButtonText: 'ตกลง'
+                });
                 return false;
             }
+            
+            // Show loading state
+            const submitButton = $(this).find('button[type="submit"]');
+            submitButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
             
             // Let the form submit normally
             return true;
@@ -548,6 +561,9 @@ foreach ($configs as $cfg) {
         
         $('#editForm').on('submit', function(e) {
             console.log('Edit form submitted');
+            
+            // Prevent any potential event bubbling issues
+            e.stopPropagation();
             
             // Check if required Select2 fields are filled
             let isValid = true;
@@ -565,9 +581,18 @@ foreach ($configs as $cfg) {
             
             if (!isValid) {
                 e.preventDefault();
-                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                Swal.fire({
+                    title: 'ข้อมูลไม่ครบถ้วน',
+                    text: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+                    icon: 'warning',
+                    confirmButtonText: 'ตกลง'
+                });
                 return false;
             }
+            
+            // Show loading state
+            const submitButton = $(this).find('button[type="submit"]');
+            submitButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...');
             
             // Let the form submit normally
             return true;
@@ -632,6 +657,8 @@ foreach ($configs as $cfg) {
         $('#add_active_quarter').val(3).trigger('change');
         $('#add_default_year').val(2568).trigger('change');
         $('#add_default_quarter').val(3).trigger('change');
+        // Reset button state
+        $('#addForm button[type="submit"]').prop('disabled', false).html('<i class="fas fa-save mr-2"></i>บันทึก');
     }
 
     function openModalEdit() {
@@ -648,6 +675,8 @@ foreach ($configs as $cfg) {
         $('#edit_active_quarter').val(3).trigger('change');
         $('#edit_default_year').val(2568).trigger('change');
         $('#edit_default_quarter').val(3).trigger('change');
+        // Reset button state
+        $('#editForm button[type="submit"]').prop('disabled', false).html('<i class="fas fa-save mr-2"></i>บันทึก');
     }
 
     function quickAdd(yearId, quarter) {
