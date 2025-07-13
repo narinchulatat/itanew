@@ -77,16 +77,46 @@ foreach ($homeConfigs as $config) {
     }
 }
 
-// กำหนดปี/ไตรมาสที่เลือก (ใช้ year value แทน id)
-$selectedYearValue = isset($_GET['year']) ? intval($_GET['year']) : ($years[0]['year'] ?? date('Y')+543);
+// กำหนดค่าเริ่มต้น
+$defaultYear = 2568; // ค่าเริ่มต้นของปี
+$defaultQuarter = 3; // ค่าเริ่มต้นของไตรมาส
 
-// ใช้ active_quarter จากการตั้งค่าเริ่มต้น หรือ quarter 3 เป็นค่าเริ่มต้น
-$defaultQuarter = 3; // ตั้งค่าเริ่มต้นเป็นไตรมาส 3 ตามความต้องการ
-if ($defaultConfig && isset($defaultConfig['active_quarter'])) {
-    $defaultQuarter = $defaultConfig['active_quarter'];
+// ใช้ค่าจากการตั้งค่าเริ่มต้นถ้ามี
+if ($defaultConfig && isset($defaultConfig['default_year']) && isset($defaultConfig['default_quarter'])) {
+    $defaultYear = $defaultConfig['default_year'];
+    $defaultQuarter = $defaultConfig['default_quarter'];
 }
 
-$selectedQuarter = isset($_GET['quarter']) ? intval($_GET['quarter']) : $defaultQuarter;
+// ตรวจสอบการมีอยู่ของ year และ quarter ใน URL
+$hasYear = isset($_GET['year']) && !empty($_GET['year']);
+$hasQuarter = isset($_GET['quarter']) && !empty($_GET['quarter']);
+
+// ถ้าไม่มี year หรือ quarter ใน URL ให้ redirect ไปยัง URL ที่ถูกต้อง
+if (!$hasYear || !$hasQuarter) {
+    $currentYear = $hasYear ? intval($_GET['year']) : $defaultYear;
+    $currentQuarter = $hasQuarter ? intval($_GET['quarter']) : $defaultQuarter;
+    
+    $redirectUrl = "index.php?page=home&year={$currentYear}&quarter={$currentQuarter}";
+    
+    // เพิ่ม query parameters อื่นๆ ที่อาจมี
+    $additionalParams = [];
+    foreach ($_GET as $key => $value) {
+        if (!in_array($key, ['page', 'year', 'quarter']) && !empty($value)) {
+            $additionalParams[] = urlencode($key) . '=' . urlencode($value);
+        }
+    }
+    
+    if (!empty($additionalParams)) {
+        $redirectUrl .= '&' . implode('&', $additionalParams);
+    }
+    
+    header("Location: $redirectUrl");
+    exit;
+}
+
+// กำหนดปี/ไตรมาสที่เลือก (ใช้ year value แทน id)
+$selectedYearValue = intval($_GET['year']);
+$selectedQuarter = intval($_GET['quarter']);
 
 // หา year_id จาก year value
 $selectedYearId = null;
@@ -334,6 +364,7 @@ $hasActiveConfigs = count($homeConfigs) > 0;
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex flex-wrap gap-4 items-center">
             <form method="get" class="flex gap-2 items-center">
+                <input type="hidden" name="page" value="home">
                 <label class="font-semibold text-gray-700">เลือกปี:</label>
                 <select name="year" class="select2 w-32">
                     <?php foreach ($years as $y): ?>
@@ -526,6 +557,7 @@ async function showTab(tabId, buttonElement, quarter) {
     
     // Update URL without page reload
     const url = new URL(window.location);
+    url.searchParams.set('year', currentYear);
     url.searchParams.set('quarter', quarter);
     window.history.replaceState({}, '', url);
 }
