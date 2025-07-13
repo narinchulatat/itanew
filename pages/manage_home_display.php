@@ -713,7 +713,7 @@ foreach ($configs as $cfg) {
         }).then((result) => {
             if (result.isConfirmed) {
                 // Create and submit delete form
-                const form = $('<form method="post" style="display:none;">' +
+                const form = $('<form method="post" action="index.php?page=manage_home_display" style="display:none;">' +
                     '<input type="hidden" name="action" value="delete">' +
                     '<input type="hidden" name="id" value="' + id + '">' +
                     '</form>');
