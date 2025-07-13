@@ -602,7 +602,7 @@ $(document).ready(function() {
         clearSubcategoryDropdown();
         
         if (yearId && quarter) {
-            $.post('ajax/get_categories.php', {
+            return $.post('ajax/get_categories.php', {
                 year_id: yearId,
                 quarter: quarter
             })
@@ -613,6 +613,8 @@ $(document).ready(function() {
             .fail(function() {
                 console.error('Failed to load categories');
             });
+        } else {
+            return $.Deferred().resolve();
         }
     };
     
@@ -705,10 +707,10 @@ $(document).ready(function() {
     window.loadSubcategoriesForCategory = function(categoryId) {
         if (!categoryId) {
             clearSubcategoryDropdown();
-            return;
+            return $.Deferred().resolve();
         }
         
-        $.post('ajax/get_subcategories.php', {
+        return $.post('ajax/get_subcategories.php', {
             category_id: categoryId
         })
         .done(function(response) {
@@ -780,35 +782,86 @@ $(document).ready(function() {
             });
             return;
         }
+        
         var id = row.data('id');
-        var title = row.data('title');
-        var content = row.data('content');
-        var category_id = row.data('category_id');
-        var subcategory_id = row.data('subcategory_id');
-        var access_rights = row.data('access_rights');
-        var file_name = row.data('file_name');
         
-        $('#id').val(id);
-        $('#title').val(title);
-        $('#content').val(content);
-        
-        // Set access rights
-        setDropdownValue('access_rights_dropdown', access_rights, getAccessRightsText(access_rights));
-        
-        $('#file_upload').val('');
-        
-        // Show existing file if any
-        if (file_name) {
-            if ($('#old_file').length === 0) {
-                $('<div id="old_file" class="mb-2 text-sm text-gray-600">ไฟล์เดิม: <a href="uploads/' + file_name + '" target="_blank" class="text-blue-600 underline">' + file_name + '</a></div>').insertBefore('#file_upload');
-            } else {
-                $('#old_file').html('ไฟล์เดิม: <a href="uploads/' + file_name + '" target="_blank" class="text-blue-600 underline">' + file_name + '</a>');
+        // แสดง loading indicator
+        Swal.fire({
+            title: 'กำลังโหลดข้อมูล...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
             }
-        } else {
-            $('#old_file').remove();
-        }
+        });
         
-        openModal();
+        // ดึงข้อมูลเอกสารผ่าน AJAX
+        $.ajax({
+            url: 'fetch_document.php',
+            method: 'POST',
+            data: { id: id },
+            dataType: 'json',
+            success: function(response) {
+                if (response && response.id) {
+                    // เติมข้อมูลพื้นฐาน
+                    $('#id').val(response.id);
+                    $('#title').val(response.title);
+                    $('#content').val(response.content);
+                    
+                    // เติมข้อมูลปีและไตรมาส
+                    selectYear(response.year, response.year);
+                    selectQuarter(response.quarter, 'ไตรมาส ' + response.quarter);
+                    
+                    // รอให้ categories โหลดเสร็จแล้วค่อยเติม category และ subcategory
+                    setTimeout(function() {
+                        loadCategoriesForYearQuarter().then(function() {
+                            // เติม category
+                            selectCategory(response.category_id, response.category_name);
+                            
+                            // รอให้ subcategories โหลดเสร็จแล้วค่อยเติม subcategory
+                            setTimeout(function() {
+                                loadSubcategoriesForCategory(response.category_id).then(function() {
+                                    selectOption('subcategory_dropdown', response.subcategory_id, response.subcategory_name);
+                                });
+                            }, 300);
+                        });
+                    }, 300);
+                    
+                    // เติมข้อมูลสิทธิ์การเข้าถึง
+                    setDropdownValue('access_rights_dropdown', response.access_rights, getAccessRightsText(response.access_rights));
+                    
+                    // แสดงไฟล์เดิม
+                    if (response.file_name) {
+                        $('#currentFile').html('<div class="text-sm text-gray-600">ไฟล์เดิม: <a href="uploads/' + response.file_name + '" target="_blank" class="text-blue-600 underline">' + response.file_name + '</a></div>');
+                    } else {
+                        $('#currentFile').html('');
+                    }
+                    
+                    // เปลี่ยนปุ่มและ modal title
+                    $('#modalTitle').text('แก้ไขเอกสาร');
+                    $('#submitBtn').attr('name', 'edit_document').html('<i class="fas fa-save mr-2"></i>บันทึกการแก้ไข');
+                    
+                    Swal.close();
+                    openModal();
+                } else {
+                    Swal.fire({
+                        title: 'ไม่พบข้อมูลเอกสาร',
+                        icon: 'error',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.log('AJAX error:', xhr.responseText, status, error);
+                Swal.fire({
+                    title: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
+                    text: error,
+                    icon: 'error',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+        });
     });
 
     // Helper function to set dropdown value
@@ -885,8 +938,12 @@ $(document).ready(function() {
         clearSubcategoryDropdown();
         
         $('#file_upload').val('');
-        $('#old_file').remove();
+        $('#currentFile').html('');
         $('#fileName').text('เลือกไฟล์...');
+        
+        // Reset modal title and button
+        $('#modalTitle').text('เพิ่มเอกสาร');
+        $('#submitBtn').attr('name', 'add_document').html('<i class="fas fa-save mr-2"></i>บันทึก');
     };
     
     // File upload handler
