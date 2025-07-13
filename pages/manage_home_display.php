@@ -32,42 +32,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $quarter = intval($_POST['quarter'] ?? 0);
     $source_year = intval($_POST['source_year'] ?? 0);
     $source_quarter = intval($_POST['source_quarter'] ?? 0);
+    $is_default = isset($_POST['is_default']) && $_POST['is_default'] === '1';
+    $active_quarter = intval($_POST['active_quarter'] ?? 1);
     $id = intval($_POST['id'] ?? 0);
     
     try {
+        // เริ่ม transaction
+        $pdo->beginTransaction();
+        
         if ($action === 'add') {
             // ตรวจสอบว่ามีการตั้งค่าซ้ำหรือไม่
             $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ? AND quarter = ?');
             $checkStmt->execute([$year, $quarter]);
             if ($checkStmt->fetchColumn() > 0) {
+                $pdo->rollback();
                 header('Location: manage_home_display.php?error=duplicate');
                 exit();
             }
             
-            $stmt = $pdo->prepare('INSERT INTO home_display_config (year, quarter, source_year, source_quarter) VALUES (?, ?, ?, ?)');
-            $stmt->execute([$year, $quarter, $source_year, $source_quarter]);
+            // ถ้าตั้งเป็น default ให้เคลียร์ default อื่นๆ
+            if ($is_default) {
+                $pdo->exec('UPDATE home_display_config SET is_default = FALSE');
+            }
+            
+            $stmt = $pdo->prepare('INSERT INTO home_display_config (year, quarter, source_year, source_quarter, is_default, active_quarter) VALUES (?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter]);
             
         } elseif ($action === 'edit' && $id) {
             // ตรวจสอบว่ามีการตั้งค่าซ้ำหรือไม่ (ยกเว้นรายการที่กำลังแก้ไข)
             $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ? AND quarter = ? AND id != ?');
             $checkStmt->execute([$year, $quarter, $id]);
             if ($checkStmt->fetchColumn() > 0) {
+                $pdo->rollback();
                 header('Location: manage_home_display.php?error=duplicate');
                 exit();
             }
             
-            $stmt = $pdo->prepare('UPDATE home_display_config SET year=?, quarter=?, source_year=?, source_quarter=? WHERE id=?');
-            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $id]);
+            // ถ้าตั้งเป็น default ให้เคลียร์ default อื่นๆ
+            if ($is_default) {
+                $pdo->exec('UPDATE home_display_config SET is_default = FALSE');
+            }
+            
+            $stmt = $pdo->prepare('UPDATE home_display_config SET year=?, quarter=?, source_year=?, source_quarter=?, is_default=?, active_quarter=? WHERE id=?');
+            $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $id]);
             
         } elseif ($action === 'delete' && $id) {
             $stmt = $pdo->prepare('DELETE FROM home_display_config WHERE id=?');
             $stmt->execute([$id]);
         }
         
+        // Commit transaction
+        $pdo->commit();
+        
         header('Location: manage_home_display.php?success=1');
         exit();
         
     } catch (Exception $e) {
+        $pdo->rollback();
         header('Location: manage_home_display.php?error=database');
         exit();
     }
@@ -191,13 +212,23 @@ foreach ($configs as $cfg) {
                                                     <i class="fas fa-database text-xs"></i>
                                                     <span>ปี <?= htmlspecialchars($yearMap[$config['source_year']] ?? '-') ?></span>
                                                 </div>
-                                                <div class="flex items-center justify-center space-x-1">
+                                                <div class="flex items-center justify-center space-x-1 mb-1">
                                                     <i class="fas fa-chart-pie text-xs"></i>
                                                     <span>Q<?= htmlspecialchars($config['source_quarter']) ?></span>
                                                 </div>
+                                                <?php if (isset($config['is_default']) && $config['is_default']): ?>
+                                                    <div class="flex items-center justify-center space-x-1 mb-1">
+                                                        <i class="fas fa-star text-xs text-yellow-500"></i>
+                                                        <span class="text-yellow-600 font-semibold">ค่าเริ่มต้น</span>
+                                                    </div>
+                                                    <div class="flex items-center justify-center space-x-1">
+                                                        <i class="fas fa-play text-xs text-green-500"></i>
+                                                        <span class="text-green-600">แอคทีฟ Q<?= htmlspecialchars($config['active_quarter'] ?? 1) ?></span>
+                                                    </div>
+                                                <?php endif; ?>
                                             </div>
                                             <div class="flex justify-center space-x-1">
-                                                <button onclick="editConfig(<?= $config['id'] ?>, <?= $config['year'] ?>, <?= $config['quarter'] ?>, <?= $config['source_year'] ?>, <?= $config['source_quarter'] ?>)" 
+                                                <button onclick="editConfig(<?= $config['id'] ?>, <?= $config['year'] ?>, <?= $config['quarter'] ?>, <?= $config['source_year'] ?>, <?= $config['source_quarter'] ?>, <?= isset($config['is_default']) && $config['is_default'] ? 'true' : 'false' ?>, <?= $config['active_quarter'] ?? 1 ?>)" 
                                                         class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-md text-xs transition-colors">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
@@ -285,6 +316,30 @@ foreach ($configs as $cfg) {
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="border-t pt-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                            <i class="fas fa-cog mr-2 text-indigo-600"></i>
+                            การตั้งค่าเริ่มต้น
+                        </h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" name="is_default" id="add_is_default" value="1" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                    <span class="text-sm text-gray-700">ตั้งเป็นค่าเริ่มต้น</span>
+                                </label>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสที่แอคทีฟ</label>
+                                <select name="active_quarter" id="add_active_quarter" class="select2-add w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="1">ไตรมาส 1</option>
+                                    <option value="2">ไตรมาส 2</option>
+                                    <option value="3" selected>ไตรมาส 3</option>
+                                    <option value="4">ไตรมาส 4</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3 rounded-b-2xl">
                     <button type="button" onclick="closeModalAdd()" class="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors">
@@ -353,6 +408,30 @@ foreach ($configs as $cfg) {
                                 <label class="block text-sm font-medium text-gray-700 mb-2">จากไตรมาส</label>
                                 <select name="source_quarter" id="edit_source_quarter" class="select2-edit w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500" required>
                                     <option value="">เลือกไตรมาส</option>
+                                    <option value="1">ไตรมาส 1</option>
+                                    <option value="2">ไตรมาส 2</option>
+                                    <option value="3">ไตรมาส 3</option>
+                                    <option value="4">ไตรมาส 4</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t pt-4">
+                        <h4 class="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                            <i class="fas fa-cog mr-2 text-amber-600"></i>
+                            การตั้งค่าเริ่มต้น
+                        </h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="flex items-center space-x-2">
+                                    <input type="checkbox" name="is_default" id="edit_is_default" value="1" class="rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                                    <span class="text-sm text-gray-700">ตั้งเป็นค่าเริ่มต้น</span>
+                                </label>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ไตรมาสที่แอคทีฟ</label>
+                                <select name="active_quarter" id="edit_active_quarter" class="select2-edit w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
                                     <option value="1">ไตรมาส 1</option>
                                     <option value="2">ไตรมาส 2</option>
                                     <option value="3">ไตรมาส 3</option>
@@ -444,6 +523,8 @@ foreach ($configs as $cfg) {
         // Reset form
         $('#addForm')[0].reset();
         $('.select2-add').val(null).trigger('change');
+        $('#add_is_default').prop('checked', false);
+        $('#add_active_quarter').val(3).trigger('change');
     }
 
     function openModalEdit() {
@@ -456,6 +537,8 @@ foreach ($configs as $cfg) {
         // Reset form
         $('#editForm')[0].reset();
         $('.select2-edit').val(null).trigger('change');
+        $('#edit_is_default').prop('checked', false);
+        $('#edit_active_quarter').val(3).trigger('change');
     }
 
     function quickAdd(yearId, quarter) {
@@ -463,15 +546,19 @@ foreach ($configs as $cfg) {
         $('#add_quarter').val(quarter).trigger('change');
         $('#add_source_year').val(yearId).trigger('change');
         $('#add_source_quarter').val(quarter).trigger('change');
+        $('#add_is_default').prop('checked', false);
+        $('#add_active_quarter').val(3).trigger('change');
         openModalAdd();
     }
 
-    function editConfig(id, year, quarter, source_year, source_quarter) {
+    function editConfig(id, year, quarter, source_year, source_quarter, is_default, active_quarter) {
         $('#edit_id').val(id);
         $('#edit_year').val(year).trigger('change');
         $('#edit_quarter').val(quarter).trigger('change');
         $('#edit_source_year').val(source_year).trigger('change');
         $('#edit_source_quarter').val(source_quarter).trigger('change');
+        $('#edit_is_default').prop('checked', is_default === 'true' || is_default === true);
+        $('#edit_active_quarter').val(active_quarter || 3).trigger('change');
         openModalEdit();
     }
 
