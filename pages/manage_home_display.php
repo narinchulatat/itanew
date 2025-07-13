@@ -177,11 +177,21 @@ foreach ($configs as $cfg) {
             <div class="bg-white rounded-xl card-shadow p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-gray-600 text-sm font-medium">ปีล่าสุด</p>
-                        <p class="text-2xl font-bold text-purple-600"><?= !empty($years) ? $years[0]['year'] : '-' ?></p>
+                        <p class="text-gray-600 text-sm font-medium">การตั้งค่าเริ่มต้น</p>
+                        <p class="text-2xl font-bold text-yellow-600">
+                            <?php 
+                            $defaultCount = 0;
+                            foreach ($configs as $cfg) {
+                                if (isset($cfg['is_default']) && $cfg['is_default']) {
+                                    $defaultCount++;
+                                }
+                            }
+                            echo $defaultCount;
+                            ?>
+                        </p>
                     </div>
-                    <div class="bg-purple-100 rounded-full p-3">
-                        <i class="fas fa-clock text-purple-600"></i>
+                    <div class="bg-yellow-100 rounded-full p-3">
+                        <i class="fas fa-star text-yellow-600"></i>
                     </div>
                 </div>
             </div>
