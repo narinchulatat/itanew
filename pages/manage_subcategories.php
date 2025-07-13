@@ -341,36 +341,45 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
 </section>
 
 <!-- Modal for Adding/Editing Subcategory -->
-<div id="subcategoryModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-7xl mx-4">
-        <div class="flex justify-between items-center border-b border-gray-200 px-6 py-4">
-            <h4 class="text-lg font-semibold text-gray-800">เพิ่ม/แก้ไขหมวดหมู่ย่อย</h4>
-            <button type="button" class="text-gray-400 hover:text-gray-600 text-2xl close transition duration-200" onclick="closeModal()">&times;</button>
+<div id="subcategoryModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm transition duration-300 ease-in-out hidden">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl md:max-w-3xl mx-4 border border-gray-100 transform transition-all duration-300 ease-in-out">
+        <div class="flex justify-between items-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-2xl px-8 py-6">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white bg-opacity-20 p-2 rounded-lg">
+                    <i class="fas fa-folder-plus text-lg"></i>
+                </div>
+                <h4 class="text-xl font-bold tracking-tight">เพิ่ม/แก้ไขหมวดหมู่ย่อย</h4>
+            </div>
+            <button type="button" class="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition duration-200" onclick="closeModal()">
+                <i class="fas fa-times text-lg"></i>
+            </button>
         </div>
-        <div class="px-6 py-6">
+        <div class="px-8 py-8">
             <form id="subcategoryForm" action="index.php?page=manage_subcategories" method="POST">
-                <div class="space-y-4">
+                <div class="space-y-6">
                     <input type="hidden" id="subcategoryId" name="id">
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="year_id" class="block text-sm font-medium text-gray-700 mb-2">ปี:</label>
-                            <select class="w-full h-12 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
-                                    id="year_id" 
-                                    name="year_id" 
-                                    required onchange="loadCategoriesForYearQuarter()">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label for="year_id" class="block text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                                <i class="fas fa-calendar-alt text-blue-500"></i>
+                                <span>ปี</span>
+                            </label>
+                            <select class="w-full h-12 px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition duration-200 shadow-sm" 
+                                    id="year_id" name="year_id" required onchange="loadCategoriesForYearQuarter()">
                                 <option value="">เลือกปี</option>
                                 <?php foreach ($years as $year): ?>
                                     <option value="<?= $year['id'] ?>"><?= htmlspecialchars($year['year']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div>
-                            <label for="quarter" class="block text-sm font-medium text-gray-700 mb-2">ไตรมาส:</label>
-                            <select class="w-full h-12 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
-                                    id="quarter" 
-                                    name="quarter" 
-                                    required onchange="loadCategoriesForYearQuarter()">
+                        <div class="space-y-2">
+                            <label for="quarter" class="block text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                                <i class="fas fa-calendar-quarter text-green-500"></i>
+                                <span>ไตรมาส</span>
+                            </label>
+                            <select class="w-full h-12 px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition duration-200 shadow-sm" 
+                                    id="quarter" name="quarter" required onchange="loadCategoriesForYearQuarter()">
                                 <option value="">เลือกไตรมาส</option>
                                 <option value="1">ไตรมาส 1</option>
                                 <option value="2">ไตรมาส 2</option>
@@ -380,27 +389,33 @@ $years = $years_stmt->fetchAll(PDO::FETCH_ASSOC);
                         </div>
                     </div>
                     
-                    <div>
-                        <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">หมวดหมู่หลัก</label>
-                        <select class="w-full h-12 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
-                                id="category_id" 
-                                name="category_id" 
-                                required>
+                    <div class="space-y-2">
+                        <label for="category_id" class="block text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                            <i class="fas fa-folder-open text-orange-500"></i>
+                            <span>หมวดหมู่หลัก</span>
+                        </label>
+                        <select class="w-full h-12 px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition duration-200 shadow-sm" 
+                                id="category_id" name="category_id" required>
                             <option value="">เลือกปีและไตรมาสก่อน</option>
                         </select>
                     </div>
                     
-                    <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700 mb-2">ชื่อหมวดหมู่ย่อย</label>
-                        <textarea id="name" name="name" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required></textarea>
+                    <div class="space-y-2">
+                        <label for="name" class="block text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                            <i class="fas fa-tag text-purple-500"></i>
+                            <span>ชื่อหมวดหมู่ย่อย</span>
+                        </label>
+                        <textarea id="name" name="name" rows="4" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition duration-200 resize-none shadow-sm" required placeholder="กรุณากรอกชื่อหมวดหมู่ย่อย..."></textarea>
                     </div>
                 </div>
-                <div class="flex justify-end space-x-2 mt-4">
-                    <button type="button" class="bg-gray-300 text-gray-700 rounded-md px-4 py-2 hover:bg-gray-400 transition duration-200" onclick="closeModal()">
-                        <i class="fas fa-times mr-2"></i>ยกเลิก
+                <div class="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-100">
+                    <button type="button" class="bg-gray-100 text-gray-700 rounded-xl px-6 py-3 font-semibold hover:bg-gray-200 transition duration-200 shadow-sm flex items-center space-x-2" onclick="closeModal()">
+                        <i class="fas fa-times"></i>
+                        <span>ยกเลิก</span>
                     </button>
-                    <button type="submit" id="subcategoryFormSubmitButton" name="add_subcategory" class="bg-blue-600 text-white rounded-md px-4 py-2 hover:bg-blue-700 transition duration-200">
-                        <i class="fas fa-save mr-2"></i>เพิ่มหมวดหมู่ย่อย
+                    <button type="submit" id="subcategoryFormSubmitButton" name="add_subcategory" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl px-6 py-3 font-semibold hover:from-blue-700 hover:to-indigo-700 transition duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2 transform hover:scale-105">
+                        <i class="fas fa-save"></i>
+                        <span>เพิ่มหมวดหมู่ย่อย</span>
                     </button>
                 </div>
             </form>
