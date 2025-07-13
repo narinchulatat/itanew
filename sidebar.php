@@ -116,7 +116,7 @@ if ($isLoggedIn) {
                     </a>
                 </li>
                 <li>
-                    <a href="index.php?page=manage_home_display" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors duration-200 <?= ($page == 'manage_home_display') ? 'bg-blue-600 text-white' : ''; ?>">
+                    <a href="index.php?page=simple_home_display" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors duration-200 <?= ($page == 'simple_home_display') ? 'bg-blue-600 text-white' : ''; ?>">
                         <i class="fas fa-cog mr-3"></i>
                         <span>ตั้งค่าการแสดงผลหน้าแรก</span>
                     </a>
