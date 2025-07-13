@@ -87,33 +87,6 @@ if ($defaultConfig && isset($defaultConfig['default_year']) && isset($defaultCon
     $defaultQuarter = $defaultConfig['default_quarter'];
 }
 
-// ตรวจสอบการมีอยู่ของ year และ quarter ใน URL
-$hasYear = isset($_GET['year']) && !empty($_GET['year']);
-$hasQuarter = isset($_GET['quarter']) && !empty($_GET['quarter']);
-
-// ถ้าไม่มี year หรือ quarter ใน URL ให้ redirect ไปยัง URL ที่ถูกต้อง
-if (!$hasYear || !$hasQuarter) {
-    $currentYear = $hasYear ? intval($_GET['year']) : $defaultYear;
-    $currentQuarter = $hasQuarter ? intval($_GET['quarter']) : $defaultQuarter;
-    
-    $redirectUrl = "index.php?page=home&year={$currentYear}&quarter={$currentQuarter}";
-    
-    // เพิ่ม query parameters อื่นๆ ที่อาจมี
-    $additionalParams = [];
-    foreach ($_GET as $key => $value) {
-        if (!in_array($key, ['page', 'year', 'quarter']) && !empty($value)) {
-            $additionalParams[] = urlencode($key) . '=' . urlencode($value);
-        }
-    }
-    
-    if (!empty($additionalParams)) {
-        $redirectUrl .= '&' . implode('&', $additionalParams);
-    }
-    
-    header("Location: $redirectUrl");
-    exit;
-}
-
 // กำหนดปี/ไตรมาสที่เลือก (ใช้ year value แทน id)
 $selectedYearValue = intval($_GET['year']);
 $selectedQuarter = intval($_GET['quarter']);

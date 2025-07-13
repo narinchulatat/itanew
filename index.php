@@ -1,5 +1,58 @@
 <?php
+// Start output buffering to prevent header warnings
+ob_start();
+
 $page = $_GET['page'] ?? 'home';
+
+// Handle redirects before any HTML output
+if ($page === 'home') {
+    // Include database connection for home page redirect logic
+    include './db.php';
+    
+    // กำหนดค่าเริ่มต้น
+    $defaultYear = 2568;
+    $defaultQuarter = 3;
+    
+    // ดึงการตั้งค่าเริ่มต้นจากฐานข้อมูล
+    $stmt = $pdo->prepare("SELECT default_year, default_quarter FROM home_display_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1");
+    $stmt->execute();
+    $defaultConfig = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($defaultConfig) {
+        $defaultYear = $defaultConfig['default_year'];
+        $defaultQuarter = $defaultConfig['default_quarter'];
+    }
+    
+    // ตรวจสอบการมีอยู่ของ year และ quarter ใน URL
+    $hasYear = isset($_GET['year']) && !empty($_GET['year']);
+    $hasQuarter = isset($_GET['quarter']) && !empty($_GET['quarter']);
+    
+    // ถ้าไม่มี year หรือ quarter ใน URL ให้ redirect ไปยัง URL ที่ถูกต้อง
+    if (!$hasYear || !$hasQuarter) {
+        $currentYear = $hasYear ? intval($_GET['year']) : $defaultYear;
+        $currentQuarter = $hasQuarter ? intval($_GET['quarter']) : $defaultQuarter;
+        
+        $redirectUrl = "index.php?page=home&year={$currentYear}&quarter={$currentQuarter}";
+        
+        // เพิ่ม query parameters อื่นๆ ที่อาจมี
+        $additionalParams = [];
+        foreach ($_GET as $key => $value) {
+            if (!in_array($key, ['page', 'year', 'quarter']) && !empty($value)) {
+                $additionalParams[] = urlencode($key) . '=' . urlencode($value);
+            }
+        }
+        
+        if (!empty($additionalParams)) {
+            $redirectUrl .= '&' . implode('&', $additionalParams);
+        }
+        
+        // Clean output buffer and redirect
+        ob_end_clean();
+        header("Location: $redirectUrl");
+        exit;
+    }
+}
+
 // ตรวจสอบ session/role admin ก่อน include sidebar/page admin
 $adminPages = ['manage_home_display','manage_years','manage_categories','manage_documents','manage_documents_config','manage_subcategories','manage_users','approve_documents'];
 if (in_array($page, $adminPages)) {
@@ -9,6 +62,7 @@ if (in_array($page, $adminPages)) {
     // เฉพาะ manage_documents และ manage_documents_config ให้ role_id == 1 หรือ 3 เข้าได้
     if (in_array($page, ['manage_documents', 'manage_documents_config'])) {
         if (!isset($_SESSION['role_id']) || !in_array($_SESSION['role_id'], ['1','3'])) {
+            ob_end_clean();
             header('Location: login.php');
             exit();
         }
@@ -16,6 +70,7 @@ if (in_array($page, $adminPages)) {
     // หน้า approve_documents ให้ role_id == 1 หรือ 2 เข้าได้
     else if ($page === 'approve_documents') {
         if (!isset($_SESSION['role_id']) || !in_array($_SESSION['role_id'], ['1','2'])) {
+            ob_end_clean();
             header('Location: login.php');
             exit();
         }
@@ -23,6 +78,7 @@ if (in_array($page, $adminPages)) {
     // หน้า admin อื่น ๆ ให้เฉพาะ role_id == 1 เข้าได้
     else {
         if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != '1') {
+            ob_end_clean();
             header('Location: login.php');
             exit();
         }
@@ -34,6 +90,7 @@ if ($page === 'manage_profiles') {
         session_start();
     }
     if (!isset($_SESSION['user_id'])) {
+        ob_end_clean();
         header('Location: login.php');
         exit();
     }
@@ -142,3 +199,9 @@ if ($page === 'manage_profiles') {
 </body>
 
 </html>
+<?php
+// Flush output buffer if still active
+if (ob_get_level()) {
+    ob_end_flush();
+}
+?>
