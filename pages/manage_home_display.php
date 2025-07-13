@@ -43,13 +43,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
         
         if ($action === 'add') {
+            // Enhanced validation
+            if ($year <= 0 || $quarter <= 0 || $source_year <= 0 || $source_quarter <= 0) {
+                throw new Exception('ข้อมูลไม่ครบถ้วน กรุณากรอกข้อมูลให้ครบ');
+            }
+            
+            if ($quarter < 1 || $quarter > 4 || $source_quarter < 1 || $source_quarter > 4) {
+                throw new Exception('ไตรมาสต้องอยู่ระหว่าง 1-4');
+            }
+            
+            if ($active_quarter < 1 || $active_quarter > 4 || $default_quarter < 1 || $default_quarter > 4) {
+                throw new Exception('ไตรมาสที่แอคทีฟและเริ่มต้นต้องอยู่ระหว่าง 1-4');
+            }
+            
             // ตรวจสอบว่ามีการตั้งค่าซ้ำหรือไม่
             $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ? AND quarter = ?');
             $checkStmt->execute([$year, $quarter]);
             if ($checkStmt->fetchColumn() > 0) {
-                $pdo->rollback();
-                header('Location: index.php?page=manage_home_display&error=duplicate');
-                exit();
+                throw new Exception('มีการตั้งค่าสำหรับปีและไตรมาสนี้อยู่แล้ว');
             }
             
             // ถ้าตั้งเป็น default ให้เคลียร์ default อื่นๆ
@@ -61,13 +72,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $default_year, $default_quarter]);
             
         } elseif ($action === 'edit' && $id) {
+            // Enhanced validation
+            if ($year <= 0 || $quarter <= 0 || $source_year <= 0 || $source_quarter <= 0) {
+                throw new Exception('ข้อมูลไม่ครบถ้วน กรุณากรอกข้อมูลให้ครบ');
+            }
+            
+            if ($quarter < 1 || $quarter > 4 || $source_quarter < 1 || $source_quarter > 4) {
+                throw new Exception('ไตรมาสต้องอยู่ระหว่าง 1-4');
+            }
+            
+            if ($active_quarter < 1 || $active_quarter > 4 || $default_quarter < 1 || $default_quarter > 4) {
+                throw new Exception('ไตรมาสที่แอคทีฟและเริ่มต้นต้องอยู่ระหว่าง 1-4');
+            }
+            
             // ตรวจสอบว่ามีการตั้งค่าซ้ำหรือไม่ (ยกเว้นรายการที่กำลังแก้ไข)
             $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM home_display_config WHERE year = ? AND quarter = ? AND id != ?');
             $checkStmt->execute([$year, $quarter, $id]);
             if ($checkStmt->fetchColumn() > 0) {
-                $pdo->rollback();
-                header('Location: index.php?page=manage_home_display&error=duplicate');
-                exit();
+                throw new Exception('มีการตั้งค่าสำหรับปีและไตรมาสนี้อยู่แล้ว');
             }
             
             // ถ้าตั้งเป็น default ให้เคลียร์ default อื่นๆ
@@ -79,6 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$year, $quarter, $source_year, $source_quarter, $is_default, $active_quarter, $default_year, $default_quarter, $id]);
             
         } elseif ($action === 'delete' && $id) {
+            if ($id <= 0) {
+                throw new Exception('ข้อมูลไม่ถูกต้อง');
+            }
+            
             $stmt = $pdo->prepare('DELETE FROM home_display_config WHERE id=?');
             $stmt->execute([$id]);
         }
@@ -91,7 +117,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
     } catch (Exception $e) {
         $pdo->rollback();
-        header('Location: index.php?page=manage_home_display&error=database');
+        if (strpos($e->getMessage(), 'มีการตั้งค่า') !== false) {
+            header('Location: index.php?page=manage_home_display&error=duplicate');
+        } else {
+            header('Location: index.php?page=manage_home_display&error=database');
+        }
         exit();
     }
 }
@@ -718,7 +748,7 @@ foreach ($configs as $cfg) {
         }).then((result) => {
             if (result.isConfirmed) {
                 // Create and submit delete form
-                const form = $('<form method="post" style="display:none;">' +
+                const form = $('<form method="post" action="index.php?page=manage_home_display" style="display:none;">' +
                     '<input type="hidden" name="action" value="delete">' +
                     '<input type="hidden" name="id" value="' + id + '">' +
                     '</form>');

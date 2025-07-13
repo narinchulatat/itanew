@@ -1,6 +1,6 @@
 <?php
 ob_start();
-include './db.php';
+require_once dirname(__DIR__) . '/db.php';
 session_start();
 
 if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 1) {
@@ -12,35 +12,93 @@ $message = '';
 $action = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $pdo->beginTransaction();
+    
     try {
         if (isset($_POST['add_year'])) {
-            $year = $_POST['year'];
+            $year = trim($_POST['year']);
+            
+            // Validation
+            if (empty($year)) {
+                throw new Exception('กรุณากรอกปี');
+            }
+            
+            if (!is_numeric($year) || $year < 2500 || $year > 2600) {
+                throw new Exception('ปีต้องเป็นตัวเลขระหว่าง 2500-2600');
+            }
+            
+            // Check for duplicate
+            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM years WHERE year = ?");
+            $checkStmt->execute([$year]);
+            if ($checkStmt->fetchColumn() > 0) {
+                throw new Exception('ปีนี้มีในระบบแล้ว');
+            }
+            
             $stmt = $pdo->prepare("INSERT INTO years (year) VALUES (?)");
             $stmt->execute([$year]);
             $message = 'เพิ่มปีสำเร็จ!';
             $action = 'add';
+            
         } elseif (isset($_POST['edit_year'])) {
-            $id = $_POST['id'];
-            $year = $_POST['year'];
+            $id = intval($_POST['id']);
+            $year = trim($_POST['year']);
+            
+            // Validation
+            if (empty($year)) {
+                throw new Exception('กรุณากรอกปี');
+            }
+            
+            if (!is_numeric($year) || $year < 2500 || $year > 2600) {
+                throw new Exception('ปีต้องเป็นตัวเลขระหว่าง 2500-2600');
+            }
+            
+            if ($id <= 0) {
+                throw new Exception('ข้อมูลไม่ถูกต้อง');
+            }
+            
+            // Check for duplicate (exclude current record)
+            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM years WHERE year = ? AND id != ?");
+            $checkStmt->execute([$year, $id]);
+            if ($checkStmt->fetchColumn() > 0) {
+                throw new Exception('ปีนี้มีในระบบแล้ว');
+            }
+            
             $stmt = $pdo->prepare("UPDATE years SET year = ? WHERE id = ?");
             $stmt->execute([$year, $id]);
             $message = 'แก้ไขปีสำเร็จ!';
             $action = 'edit';
+            
         } elseif (isset($_POST['delete_year'])) {
-            $id = $_POST['id'];
+            $id = intval($_POST['id']);
+            
+            if ($id <= 0) {
+                throw new Exception('ข้อมูลไม่ถูกต้อง');
+            }
+            
             $stmt = $pdo->prepare("DELETE FROM years WHERE id = ?");
             $stmt->execute([$id]);
             $message = 'ลบปีสำเร็จ!';
             $action = 'delete';
         }
+        
+        $pdo->commit();
+        
     } catch (PDOException $e) {
+        $pdo->rollback();
         if ($e->getCode() == '23000') {
             $message = 'ไม่สามารถลบปีนี้ได้ เนื่องจากถูกใช้งานในข้อมูลอื่น';
             $action = 'error';
         } else {
-            throw $e;
+            $message = 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล';
+            $action = 'error';
         }
+    } catch (Exception $e) {
+        $pdo->rollback();
+        $message = $e->getMessage();
+        $action = 'error';
     }
+    
+    ob_end_clean();
     echo "<script>
         document.addEventListener('DOMContentLoaded', function() {
             Swal.fire({
