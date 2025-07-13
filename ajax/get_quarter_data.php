@@ -121,9 +121,10 @@ foreach ($categories as $category) {
             foreach ($docs as $doc) {
                 $filePath = '../uploads/' . $doc['file_name'];
                 $fileSize = file_exists($filePath) ? round(filesize($filePath)/1024, 2) : 0;
+                $encodedFileName = encode_file_name($doc['file_name']);
                 $output .= "<li class=\"flex flex-wrap items-center gap-2\">";
                 $output .= "<span class=\"text-gray-800\">".htmlspecialchars($doc['title'])."</span>";
-                $output .= "<a href=\"../uploads/".htmlspecialchars($doc['file_name'])."\" class=\"inline-flex items-center bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 transition ml-1\" target=\"_blank\">";
+                $output .= "<a href=\"../download.php?file=".urlencode($encodedFileName)."\" class=\"inline-flex items-center bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 transition ml-1\">";
                 $output .= "<i class=\"fas fa-download mr-1\"></i>ดาวน์โหลด";
                 $output .= "</a>";
                 $output .= "<span class=\"bg-gray-200 text-gray-700 text-xs rounded px-2 py-0.5 ml-1\">1 เอกสาร</span>";

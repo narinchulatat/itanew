@@ -269,7 +269,7 @@ foreach ($configs as $cfg) {
     <!-- Modal Add -->
     <div id="modalAdd" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4" style="display:none;">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95">
-            <form method="post" id="addForm">
+            <form method="post" id="addForm" action="manage_home_display.php">
                 <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-2xl px-6 py-4 flex items-center justify-between">
                     <h3 class="text-xl font-bold text-white">เพิ่มการตั้งค่าใหม่</h3>
                     <button type="button" onclick="closeModalAdd()" class="text-white hover:text-gray-200 transition-colors">
@@ -387,7 +387,7 @@ foreach ($configs as $cfg) {
     <!-- Modal Edit -->
     <div id="modalEdit" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4" style="display:none;">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95">
-            <form method="post" id="editForm">
+            <form method="post" id="editForm" action="manage_home_display.php">
                 <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-t-2xl px-6 py-4 flex items-center justify-between">
                     <h3 class="text-xl font-bold text-white">แก้ไขการตั้งค่า</h3>
                     <button type="button" onclick="closeModalEdit()" class="text-white hover:text-gray-200 transition-colors">
@@ -516,6 +516,61 @@ foreach ($configs as $cfg) {
             dropdownParent: $('#modalEdit'),
             placeholder: 'เลือก...',
             allowClear: true
+        });
+        
+        // Add form submission handlers to ensure forms are properly submitted
+        $('#addForm').on('submit', function(e) {
+            console.log('Add form submitted');
+            
+            // Check if required Select2 fields are filled
+            let isValid = true;
+            const requiredFields = ['#add_year', '#add_quarter', '#add_source_year', '#add_source_quarter'];
+            
+            requiredFields.forEach(function(fieldId) {
+                const value = $(fieldId).val();
+                if (!value || value === '') {
+                    isValid = false;
+                    $(fieldId).next('.select2-container').addClass('border-red-500');
+                } else {
+                    $(fieldId).next('.select2-container').removeClass('border-red-500');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return false;
+            }
+            
+            // Let the form submit normally
+            return true;
+        });
+        
+        $('#editForm').on('submit', function(e) {
+            console.log('Edit form submitted');
+            
+            // Check if required Select2 fields are filled
+            let isValid = true;
+            const requiredFields = ['#edit_year', '#edit_quarter', '#edit_source_year', '#edit_source_quarter'];
+            
+            requiredFields.forEach(function(fieldId) {
+                const value = $(fieldId).val();
+                if (!value || value === '') {
+                    isValid = false;
+                    $(fieldId).next('.select2-container').addClass('border-red-500');
+                } else {
+                    $(fieldId).next('.select2-container').removeClass('border-red-500');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return false;
+            }
+            
+            // Let the form submit normally
+            return true;
         });
         
         // Handle success/error messages
