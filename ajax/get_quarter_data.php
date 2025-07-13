@@ -124,7 +124,7 @@ foreach ($categories as $category) {
                 $encodedFileName = encode_file_name($doc['file_name']);
                 $output .= "<li class=\"flex flex-wrap items-center gap-2\">";
                 $output .= "<span class=\"text-gray-800\">".htmlspecialchars($doc['title'])."</span>";
-                $output .= "<a href=\"../download.php?file=".urlencode($encodedFileName)."\" class=\"inline-flex items-center bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 transition ml-1\">";
+                $output .= "<a href=\"download.php?file=".urlencode($encodedFileName)."\" class=\"inline-flex items-center bg-green-600 text-white text-xs px-2 py-1 rounded hover:bg-green-700 transition ml-1\">";
                 $output .= "<i class=\"fas fa-download mr-1\"></i>ดาวน์โหลด";
                 $output .= "</a>";
                 $output .= "<span class=\"bg-gray-200 text-gray-700 text-xs rounded px-2 py-0.5 ml-1\">1 เอกสาร</span>";
