@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Structure Fix Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 40px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+        .test-case {
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .url-input {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 5px 0;
+            display: block;
+        }
+        .url-output {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 5px 0;
+            display: block;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .feature-title {
+            color: #4CAF50;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .status-success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .status-info {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .admin-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .code-block {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 URL Structure Fix for Home.php</h1>
+        
+        <div class="demo-section">
+            <h2>📋 Implementation Overview</h2>
+            <p>This fix addresses the URL structure issue where home.php was showing URLs like <code>index.php?page=home&quarter=3</code> instead of the required <code>index.php?page=home&year=2568&quarter=3</code>.</p>
+            
+            <div class="feature-list">
+                <div class="feature-card">
+                    <div class="feature-title">✅ Redirect Logic</div>
+                    <p>Automatically redirects incomplete URLs to include both year and quarter parameters.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">🗄️ Database Schema</div>
+                    <p>Added support for default configuration with is_default, default_year, and default_quarter columns.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">⚙️ Admin Interface</div>
+                    <p>Enhanced management interface for setting default year/quarter configurations.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">🔗 JavaScript Updates</div>
+                    <p>Fixed tab navigation to properly update URLs with both year and quarter parameters.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🔄 URL Redirect Examples</h2>
+            
+            <div class="test-case">
+                <h3>Test Case 1: No Parameters</h3>
+                <div class="url-input">INPUT: index.php?page=home</div>
+                <div class="url-output">OUTPUT: index.php?page=home&year=2568&quarter=3</div>
+                <p><span class="status-success">✓ PASS</span> - Adds both default year and quarter</p>
+            </div>
+
+            <div class="test-case">
+                <h3>Test Case 2: Missing Quarter</h3>
+                <div class="url-input">INPUT: index.php?page=home&year=2567</div>
+                <div class="url-output">OUTPUT: index.php?page=home&year=2567&quarter=3</div>
+                <p><span class="status-success">✓ PASS</span> - Preserves year, adds default quarter</p>
+            </div>
+
+            <div class="test-case">
+                <h3>Test Case 3: Missing Year</h3>
+                <div class="url-input">INPUT: index.php?page=home&quarter=2</div>
+                <div class="url-output">OUTPUT: index.php?page=home&year=2568&quarter=2</div>
+                <p><span class="status-success">✓ PASS</span> - Adds default year, preserves quarter</p>
+            </div>
+
+            <div class="test-case">
+                <h3>Test Case 4: Complete URL</h3>
+                <div class="url-input">INPUT: index.php?page=home&year=2567&quarter=2</div>
+                <div class="url-output">OUTPUT: No redirect needed</div>
+                <p><span class="status-success">✓ PASS</span> - URL is complete, no redirect</p>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🗃️ Database Schema Changes</h2>
+            <div class="code-block">
+ALTER TABLE home_display_config 
+ADD COLUMN is_default BOOLEAN DEFAULT FALSE,
+ADD COLUMN default_year INT NULL,
+ADD COLUMN default_quarter INT NULL;
+
+-- Set default configuration for year 2568, quarter 3
+UPDATE home_display_config 
+SET is_default = TRUE, 
+    default_year = 2568, 
+    default_quarter = 3 
+WHERE year = (SELECT id FROM years WHERE year = 2568) 
+  AND quarter = 3;
+            </div>
+        </div>
+
+        <div class="admin-section">
+            <h2>⚙️ Admin Interface Enhancements</h2>
+            <p><strong>File:</strong> pages/manage_home_display.php</p>
+            <ul>
+                <li>Added UI controls for setting default year and quarter</li>
+                <li>Enhanced form validation for default configuration</li>
+                <li>Visual indicators for default settings</li>
+                <li>Automatic cleanup of multiple default configurations</li>
+            </ul>
+            
+            <h3>New Features:</h3>
+            <ul>
+                <li>Default Year Selection (dropdown with available years)</li>
+                <li>Default Quarter Selection (quarters 1-4)</li>
+                <li>Active Quarter Setting (for tab navigation)</li>
+                <li>Default Configuration Toggle (only one allowed)</li>
+            </ul>
+        </div>
+
+        <div class="demo-section">
+            <h2>📁 Files Modified</h2>
+            <div class="feature-list">
+                <div class="feature-card">
+                    <div class="feature-title">pages/home.php</div>
+                    <p>Added redirect logic, updated JavaScript URL handling, enhanced form parameters</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">pages/manage_home_display.php</div>
+                    <p>Enhanced admin interface with default configuration management</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">migration_home_display_config.sql</div>
+                    <p>Database schema updates for default configuration support</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">test_logic.php</div>
+                    <p>Comprehensive test suite for URL redirect logic validation</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🧪 Test Results</h2>
+            <div class="test-case">
+                <h3>Automated Test Results</h3>
+                <div class="code-block">
+Testing URL redirect logic (no database required)...
+
+Test 1: No year or quarter parameters
+  <span class="status-success">✓ PASS</span>: Redirect URL correct: index.php?page=home&year=2568&quarter=3
+
+Test 2: Only year parameter
+  <span class="status-success">✓ PASS</span>: Redirect URL correct: index.php?page=home&year=2567&quarter=3
+
+Test 3: Only quarter parameter
+  <span class="status-success">✓ PASS</span>: Redirect URL correct: index.php?page=home&year=2568&quarter=2
+
+Test 4: Both year and quarter parameters
+  <span class="status-success">✓ PASS</span>: No redirect needed
+
+Test 5: Empty year parameter
+  <span class="status-success">✓ PASS</span>: Redirect URL correct: index.php?page=home&year=2568&quarter=2
+
+Test 6: Empty quarter parameter
+  <span class="status-success">✓ PASS</span>: Redirect URL correct: index.php?page=home&year=2567&quarter=3
+
+<span class="status-info">All tests completed!</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🚀 Installation Instructions</h2>
+            <ol>
+                <li><strong>Run Database Migration:</strong>
+                    <div class="code-block">mysql -u root -p namyuenh_newita < migration_home_display_config.sql</div>
+                </li>
+                <li><strong>Verify Installation:</strong>
+                    <div class="code-block">php test_logic.php</div>
+                </li>
+                <li><strong>Test in Browser:</strong>
+                    <ul>
+                        <li>Visit <code>index.php?page=home</code></li>
+                        <li>Should redirect to <code>index.php?page=home&year=2568&quarter=3</code></li>
+                        <li>Test admin interface at <code>pages/manage_home_display.php</code></li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="demo-section">
+            <h2>📊 Implementation Summary</h2>
+            <div class="feature-list">
+                <div class="feature-card">
+                    <div class="feature-title">✅ Problem Solved</div>
+                    <p>URLs now properly display both year and quarter parameters as required</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">🔄 Automatic Redirects</div>
+                    <p>Incomplete URLs are automatically redirected to the correct format</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">⚙️ Configurable Defaults</div>
+                    <p>Default year and quarter can be set through admin interface</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-title">🧪 Thoroughly Tested</div>
+                    <p>Comprehensive test suite ensures reliability</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add some interactive elements
+        document.querySelectorAll('.test-case').forEach(testCase => {
+            testCase.addEventListener('click', function() {
+                this.style.backgroundColor = this.style.backgroundColor === 'rgb(232, 245, 232)' ? 'white' : '#e8f5e8';
+            });
+        });
+
+        // Add copy functionality to code blocks
+        document.querySelectorAll('.code-block').forEach(block => {
+            block.addEventListener('click', function() {
+                navigator.clipboard.writeText(this.textContent);
+                const originalBg = this.style.backgroundColor;
+                this.style.backgroundColor = '#d4edda';
+                setTimeout(() => {
+                    this.style.backgroundColor = originalBg;
+                }, 500);
+            });
+        });
+    </script>
+</body>
+</html>
