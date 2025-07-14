@@ -103,9 +103,17 @@ class FileUploadSecurity {
      * Validate MIME type of uploaded file
      */
     private function validateMimeType($filePath, $expectedMimeType, $uploadedMimeType) {
+        if (!file_exists($filePath)) {
+            return false;
+        }
+        
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $detectedMimeType = finfo_file($finfo, $filePath);
         finfo_close($finfo);
+        
+        if ($detectedMimeType === false) {
+            return false;
+        }
         
         // Check if detected MIME type matches expected
         if ($detectedMimeType !== $expectedMimeType) {
@@ -139,7 +147,14 @@ class FileUploadSecurity {
      * Scan file for malicious content
      */
     private function scanForMaliciousContent($filePath) {
+        if (!file_exists($filePath)) {
+            return false;
+        }
+        
         $content = file_get_contents($filePath);
+        if ($content === false) {
+            return false;
+        }
         
         foreach ($this->suspiciousPatterns as $pattern) {
             if (preg_match($pattern, $content)) {
