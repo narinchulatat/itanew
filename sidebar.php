@@ -121,6 +121,12 @@ if ($isLoggedIn) {
                         <span>ตั้งค่าการแสดงผลหน้าแรก</span>
                     </a>
                 </li>
+                <li>
+                    <a href="index.php?page=backup_admin" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors duration-200 <?= ($page == 'backup_admin') ? 'bg-blue-600 text-white' : ''; ?>">
+                        <i class="fas fa-database mr-3"></i>
+                        <span>จัดการ Backup</span>
+                    </a>
+                </li>
             <?php endif; ?>
             <!-- Menu สำหรับ Super Admin (role_id = 2) -->
             <?php if ($isLoggedIn && $role_id == '2'): ?>

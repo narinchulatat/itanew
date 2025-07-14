@@ -54,7 +54,7 @@ if ($page === 'home') {
 }
 
 // ตรวจสอบ session/role admin ก่อน include sidebar/page admin
-$adminPages = ['manage_home_display','simple_home_display','manage_years','manage_categories','manage_documents','manage_documents_config','manage_subcategories','manage_users','approve_documents'];
+$adminPages = ['manage_home_display','simple_home_display','manage_years','manage_categories','manage_documents','manage_documents_config','manage_subcategories','manage_users','approve_documents','backup_admin'];
 if (in_array($page, $adminPages)) {
     if (session_status() == PHP_SESSION_NONE) {
         session_start();
