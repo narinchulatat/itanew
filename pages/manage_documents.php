@@ -1,6 +1,7 @@
 <?php
 session_start();
 include('./db.php');
+include('./includes/FileUploadSecurity.php');
 
 // Check if the user is logged in
 if (!isset($_SESSION['user_id'])) {
@@ -11,49 +12,107 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id']; // Get the logged-in user ID
 $user_role = $_SESSION['role_id']; // Get the logged-in user's role
 
+// Initialize file upload security
+$fileUploadSecurity = new FileUploadSecurity();
+
 // Handle document management
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_document'])) {
-        // Handle file upload
-        $target_dir = "uploads/";
-        $file_name = basename($_FILES["file_upload"]["name"]);
-        $target_file = $target_dir . $file_name;
-
-        if (move_uploaded_file($_FILES["file_upload"]["tmp_name"], $target_file)) {
-            // Add new document
-            $title = $_POST['title'];
-            $content = $_POST['content'];
-            $category_id = $_POST['category_id'];
-            $subcategory_id = $_POST['subcategory_id'];
-            $access_rights = $_POST['access_rights'];
-            $file_label = $title; // Use title as the file label
-            $status = 'รออนุมัติ'; // Set status to 'Pending Approval'
-
-            $stmt = $pdo->prepare("INSERT INTO documents (title, content, status, created_at, category_id, subcategory_id, access_rights, approved, file_name, file_upload, file_label, uploaded_by) VALUES (?, ?, ?, NOW(), ?, ?, ?, 0, ?, NOW(), ?, ?)");
-            $stmt->execute([$title, $content, $status, $category_id, $subcategory_id, $access_rights, $file_name, $file_label, $user_id]);
-
-            echo "<script>
-                Swal.fire({
-                    title: 'สำเร็จ!',
-                    text: 'เอกสารถูกเพิ่มเรียบร้อยแล้ว',
-                    icon: 'success',
-                    timer: 1500,
-                    showConfirmButton: false
-                }).then(function() {
-                    window.location.href = 'index.php?page=manage_documents';
-                });
-                </script>";
-        } else {
-            echo "<script>
-                Swal.fire({
-                    title: 'ผิดพลาด!',
-                    text: 'ไม่สามารถอัปโหลดไฟล์ได้',
-                    icon: 'error',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-                </script>";
+        // Validate and handle file upload
+        $uploadResult = null;
+        $file_name = null;
+        $target_file = null;
+        
+        if (isset($_FILES["file_upload"]) && $_FILES["file_upload"]["error"] !== UPLOAD_ERR_NO_FILE) {
+            // Validate file using security class
+            $validation = $fileUploadSecurity->validateFile($_FILES["file_upload"]);
+            
+            if (!$validation['valid']) {
+                // Log failed attempt
+                $fileUploadSecurity->logUploadAttempt($user_id, $_FILES["file_upload"]["name"] ?? 'unknown', $_FILES["file_upload"]["size"] ?? 0, 'failed', $validation['errors']);
+                
+                echo "<script>
+                    Swal.fire({
+                        title: 'ไฟล์ไม่ถูกต้อง!',
+                        html: '" . implode('<br>', $validation['errors']) . "',
+                        icon: 'error',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    </script>";
+                exit;
+            }
+            
+            try {
+                // Create upload directory
+                $uploadDir = $fileUploadSecurity->createUploadDirectory();
+                
+                // Generate safe file name
+                $file_name = $fileUploadSecurity->generateSafeFileName($_FILES["file_upload"]["name"]);
+                $target_file = $uploadDir . $file_name;
+                
+                // Check if it's an image that needs compression
+                $fileExtension = $validation['fileInfo']['extension'];
+                $isImage = in_array($fileExtension, ['jpg', 'jpeg', 'png']);
+                
+                if ($isImage) {
+                    // Compress image
+                    if ($fileUploadSecurity->compressImage($_FILES["file_upload"]["tmp_name"], $target_file)) {
+                        $uploadResult = true;
+                    } else {
+                        // Fallback to normal upload if compression fails
+                        $uploadResult = move_uploaded_file($_FILES["file_upload"]["tmp_name"], $target_file);
+                    }
+                } else {
+                    // Normal file upload
+                    $uploadResult = move_uploaded_file($_FILES["file_upload"]["tmp_name"], $target_file);
+                }
+                
+                if (!$uploadResult) {
+                    throw new Exception('ไม่สามารถอัปโหลดไฟล์ได้');
+                }
+                
+                // Log successful upload
+                $fileUploadSecurity->logUploadAttempt($user_id, $_FILES["file_upload"]["name"], $_FILES["file_upload"]["size"], 'success');
+                
+            } catch (Exception $e) {
+                // Log failed attempt
+                $fileUploadSecurity->logUploadAttempt($user_id, $_FILES["file_upload"]["name"] ?? 'unknown', $_FILES["file_upload"]["size"] ?? 0, 'failed', [$e->getMessage()]);
+                
+                echo "<script>
+                    Swal.fire({
+                        title: 'ข้อผิดพลาด!',
+                        text: '" . $e->getMessage() . "',
+                        icon: 'error',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    </script>";
+                exit;
+            }
         }
+        
+        // Add new document
+        $title = $_POST['title'];
+        $content = $_POST['content'];
+        $category_id = $_POST['category_id'];
+        $subcategory_id = $_POST['subcategory_id'];
+        $access_rights = $_POST['access_rights'];
+        $file_label = $title; // Use title as the file label
+        $status = 'รออนุมัติ'; // Set status to 'Pending Approval'
+
+        $stmt = $pdo->prepare("INSERT INTO documents (title, content, status, created_at, category_id, subcategory_id, access_rights, approved, file_name, file_upload, file_label, uploaded_by) VALUES (?, ?, ?, NOW(), ?, ?, ?, 0, ?, NOW(), ?, ?)");
+        $stmt->execute([$title, $content, $status, $category_id, $subcategory_id, $access_rights, $file_name, $file_label, $user_id]);
+
+        echo "<script>
+            Swal.fire({
+                title: 'สำเร็จ!',
+                text: 'เอกสารถูกเพิ่มเรียบร้อยแล้ว',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(function() {
+                window.location.href = 'index.php?page=manage_documents';
+            });
+            </script>";
     } elseif (isset($_POST['edit_document'])) {
         // Edit document
         $id = $_POST['id'];
@@ -65,17 +124,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $file_label = $title; // Use title as the file label
         $status = 'รออนุมัติ'; // Set status to 'Pending Approval'
 
-        if (!empty($_FILES["file_upload"]["name"])) {
-            // If a new file is uploaded
-            $target_dir = "uploads/";
-            $file_name = basename($_FILES["file_upload"]["name"]);
-            $target_file = $target_dir . $file_name;
-            move_uploaded_file($_FILES["file_upload"]["tmp_name"], $target_file);
-
+        $file_name = null;
+        
+        if (!empty($_FILES["file_upload"]["name"]) && $_FILES["file_upload"]["error"] !== UPLOAD_ERR_NO_FILE) {
+            // Validate file using security class
+            $validation = $fileUploadSecurity->validateFile($_FILES["file_upload"]);
+            
+            if (!$validation['valid']) {
+                // Log failed attempt
+                $fileUploadSecurity->logUploadAttempt($user_id, $_FILES["file_upload"]["name"] ?? 'unknown', $_FILES["file_upload"]["size"] ?? 0, 'failed', $validation['errors']);
+                
+                echo "<script>
+                    Swal.fire({
+                        title: 'ไฟล์ไม่ถูกต้อง!',
+                        html: '" . implode('<br>', $validation['errors']) . "',
+                        icon: 'error',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    </script>";
+                exit;
+            }
+            
+            try {
+                // Create upload directory
+                $uploadDir = $fileUploadSecurity->createUploadDirectory();
+                
+                // Generate safe file name
+                $file_name = $fileUploadSecurity->generateSafeFileName($_FILES["file_upload"]["name"]);
+                $target_file = $uploadDir . $file_name;
+                
+                // Check if it's an image that needs compression
+                $fileExtension = $validation['fileInfo']['extension'];
+                $isImage = in_array($fileExtension, ['jpg', 'jpeg', 'png']);
+                
+                if ($isImage) {
+                    // Compress image
+                    if ($fileUploadSecurity->compressImage($_FILES["file_upload"]["tmp_name"], $target_file)) {
+                        $uploadResult = true;
+                    } else {
+                        // Fallback to normal upload if compression fails
+                        $uploadResult = move_uploaded_file($_FILES["file_upload"]["tmp_name"], $target_file);
+                    }
+                } else {
+                    // Normal file upload
+                    $uploadResult = move_uploaded_file($_FILES["file_upload"]["tmp_name"], $target_file);
+                }
+                
+                if (!$uploadResult) {
+                    throw new Exception('ไม่สามารถอัปโหลดไฟล์ได้');
+                }
+                
+                // Log successful upload
+                $fileUploadSecurity->logUploadAttempt($user_id, $_FILES["file_upload"]["name"], $_FILES["file_upload"]["size"], 'success');
+                
+            } catch (Exception $e) {
+                // Log failed attempt
+                $fileUploadSecurity->logUploadAttempt($user_id, $_FILES["file_upload"]["name"] ?? 'unknown', $_FILES["file_upload"]["size"] ?? 0, 'failed', [$e->getMessage()]);
+                
+                echo "<script>
+                    Swal.fire({
+                        title: 'ข้อผิดพลาด!',
+                        text: '" . $e->getMessage() . "',
+                        icon: 'error',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    </script>";
+                exit;
+            }
+            
+            // Update with new file
             $stmt = $pdo->prepare("UPDATE documents SET title = ?, content = ?, status = ?, updated_at = NOW(), category_id = ?, subcategory_id = ?, access_rights = ?, file_name = ?, file_upload = NOW(), file_label = ? WHERE id = ?");
             $stmt->execute([$title, $content, $status, $category_id, $subcategory_id, $access_rights, $file_name, $file_label, $id]);
         } else {
-            // If no new file is uploaded
+            // Update without new file
             $stmt = $pdo->prepare("UPDATE documents SET title = ?, content = ?, status = ?, updated_at = NOW(), category_id = ?, subcategory_id = ?, access_rights = ?, file_label = ? WHERE id = ?");
             $stmt->execute([$title, $content, $status, $category_id, $subcategory_id, $access_rights, $file_label, $id]);
         }
@@ -350,6 +471,60 @@ $subcategories = [];
         #addModal {
             overflow: visible !important;
         }
+        
+        /* File Upload Styles */
+        .file-upload-container {
+            margin-bottom: 1rem;
+        }
+        
+        .file-drop-zone {
+            border: 2px dashed #d1d5db;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #f9fafb;
+        }
+        
+        .file-drop-zone:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .file-drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #dbeafe;
+        }
+        
+        .file-drop-content {
+            pointer-events: none;
+        }
+        
+        .file-info {
+            margin-top: 1rem;
+        }
+        
+        .upload-progress {
+            margin-top: 1rem;
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        
+        /* File type icons */
+        .file-icon {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+        }
+        
+        .file-icon.pdf { color: #ef4444; }
+        .file-icon.doc, .file-icon.docx { color: #2563eb; }
+        .file-icon.xls, .file-icon.xlsx { color: #16a34a; }
+        .file-icon.ppt, .file-icon.pptx { color: #ea580c; }
+        .file-icon.txt { color: #6b7280; }
+        .file-icon.jpg, .file-icon.jpeg, .file-icon.png { color: #8b5cf6; }
     </style>
 </head>
 <body>
@@ -517,12 +692,36 @@ $subcategories = [];
                 </div>
                 <div class="form-group">
                     <label for="file_upload">เอกสารประกอบ:</label>
-                    <div class="relative">
-                        <input type="file" class="border rounded px-3 py-2 w-full hidden" id="file_upload" name="file_upload">
-                        <label for="file_upload" id="fileLabel" class="cursor-pointer flex items-center justify-between border rounded px-3 py-2 w-full bg-gray-50 hover:bg-blue-50 text-gray-700">
-                            <span id="fileName">เลือกไฟล์...</span>
-                            <span class="ml-2 text-blue-600"><i class="fa fa-upload"></i></span>
-                        </label>
+                    <div class="file-upload-container">
+                        <div class="file-drop-zone" id="fileDropZone">
+                            <div class="file-drop-content">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                                <p class="text-gray-600 mb-2">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                                <p class="text-sm text-gray-500 mb-4">ไฟล์ที่รองรับ: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, JPG, PNG</p>
+                                <p class="text-sm text-gray-500">ขนาดไฟล์สูงสุด: <?php echo $fileUploadSecurity->getMaxFileSizeFormatted(); ?></p>
+                            </div>
+                            <input type="file" class="hidden" id="file_upload" name="file_upload" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png">
+                        </div>
+                        <div id="fileInfo" class="file-info hidden">
+                            <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                                <div class="flex items-center">
+                                    <i class="fas fa-file text-blue-600 mr-2"></i>
+                                    <div>
+                                        <p class="font-medium" id="selectedFileName"></p>
+                                        <p class="text-sm text-gray-500" id="selectedFileSize"></p>
+                                    </div>
+                                </div>
+                                <button type="button" class="text-red-600 hover:text-red-800" id="removeFile">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="uploadProgress" class="upload-progress hidden">
+                            <div class="bg-gray-200 rounded-full h-2 mb-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" id="progressBar" style="width: 0%"></div>
+                            </div>
+                            <p class="text-sm text-gray-600 text-center" id="progressText">กำลังอัปโหลด...</p>
+                        </div>
                     </div>
                     <div id="currentFile" class="mt-2"></div>
                 </div>
@@ -937,16 +1136,200 @@ $(document).ready(function() {
         clearCategoryDropdown();
         clearSubcategoryDropdown();
         
+        // Reset file upload interface
         $('#file_upload').val('');
         $('#currentFile').html('');
         $('#fileName').text('เลือกไฟล์...');
+        
+        // Reset new file upload interface
+        fileDropZone.classList.remove('hidden');
+        fileInfo.classList.add('hidden');
+        uploadProgress.classList.add('hidden');
         
         // Reset modal title and button
         $('#modalTitle').text('เพิ่มเอกสาร');
         $('#submitBtn').attr('name', 'add_document').html('<i class="fas fa-save mr-2"></i>บันทึก');
     };
     
-    // File upload handler
+    // File upload handler with security validation
+    const fileUpload = document.getElementById('file_upload');
+    const fileDropZone = document.getElementById('fileDropZone');
+    const fileInfo = document.getElementById('fileInfo');
+    const selectedFileName = document.getElementById('selectedFileName');
+    const selectedFileSize = document.getElementById('selectedFileSize');
+    const removeFileBtn = document.getElementById('removeFile');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    // File validation configuration
+    const allowedTypes = <?php echo json_encode($fileUploadSecurity->getAllowedTypes()); ?>;
+    const maxFileSize = <?php echo $fileUploadSecurity->getMaxFileSize(); ?>;
+    const maxFileSizeFormatted = '<?php echo $fileUploadSecurity->getMaxFileSizeFormatted(); ?>';
+    
+    // Format file size
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // Get file extension
+    function getFileExtension(filename) {
+        return filename.split('.').pop().toLowerCase();
+    }
+    
+    // Get file icon class
+    function getFileIconClass(extension) {
+        const iconMap = {
+            'pdf': 'fa-file-pdf',
+            'doc': 'fa-file-word',
+            'docx': 'fa-file-word',
+            'xls': 'fa-file-excel',
+            'xlsx': 'fa-file-excel',
+            'ppt': 'fa-file-powerpoint',
+            'pptx': 'fa-file-powerpoint',
+            'txt': 'fa-file-alt',
+            'jpg': 'fa-file-image',
+            'jpeg': 'fa-file-image',
+            'png': 'fa-file-image'
+        };
+        return iconMap[extension] || 'fa-file';
+    }
+    
+    // Client-side file validation
+    function validateFileClient(file) {
+        const errors = [];
+        
+        // Check file size
+        if (file.size > maxFileSize) {
+            errors.push('ขนาดไฟล์ใหญ่เกินไป (สูงสุด ' + maxFileSizeFormatted + ')');
+        }
+        
+        // Check file type
+        const fileExtension = getFileExtension(file.name);
+        if (!allowedTypes.includes(fileExtension)) {
+            errors.push('ประเภทไฟล์ไม่ถูกต้อง (อนุญาตเฉพาะ: ' + allowedTypes.join(', ').toUpperCase() + ')');
+        }
+        
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
+    }
+    
+    // Handle file selection
+    function handleFileSelect(file) {
+        const validation = validateFileClient(file);
+        
+        if (!validation.valid) {
+            Swal.fire({
+                title: 'ไฟล์ไม่ถูกต้อง!',
+                html: validation.errors.join('<br>'),
+                icon: 'error',
+                confirmButtonText: 'ตกลง'
+            });
+            return;
+        }
+        
+        // Show file info
+        const extension = getFileExtension(file.name);
+        const iconClass = getFileIconClass(extension);
+        
+        selectedFileName.innerHTML = '<i class="fas ' + iconClass + ' file-icon ' + extension + '"></i>' + file.name;
+        selectedFileSize.textContent = formatFileSize(file.size);
+        
+        fileDropZone.classList.add('hidden');
+        fileInfo.classList.remove('hidden');
+        
+        // Simulate upload progress (for demo purposes)
+        showUploadProgress();
+    }
+    
+    // Show upload progress
+    function showUploadProgress() {
+        uploadProgress.classList.remove('hidden');
+        let progress = 0;
+        
+        const interval = setInterval(() => {
+            progress += Math.random() * 20;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(interval);
+                setTimeout(() => {
+                    uploadProgress.classList.add('hidden');
+                }, 500);
+            }
+            
+            progressBar.style.width = progress + '%';
+            progressText.textContent = 'กำลังอัปโหลด... ' + Math.round(progress) + '%';
+        }, 200);
+    }
+    
+    // File input change handler
+    fileUpload.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            handleFileSelect(file);
+        }
+    });
+    
+    // Drag and drop handlers
+    fileDropZone.addEventListener('click', function() {
+        fileUpload.click();
+    });
+    
+    fileDropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        fileDropZone.classList.add('dragover');
+    });
+    
+    fileDropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        fileDropZone.classList.remove('dragover');
+    });
+    
+    fileDropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        fileDropZone.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            fileUpload.files = files;
+            handleFileSelect(file);
+        }
+    });
+    
+    // Remove file handler
+    removeFileBtn.addEventListener('click', function() {
+        fileUpload.value = '';
+        fileDropZone.classList.remove('hidden');
+        fileInfo.classList.add('hidden');
+        uploadProgress.classList.add('hidden');
+    });
+    
+    // Form submission validation
+    document.getElementById('documentForm').addEventListener('submit', function(e) {
+        const file = fileUpload.files[0];
+        if (file) {
+            const validation = validateFileClient(file);
+            if (!validation.valid) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'ไฟล์ไม่ถูกต้อง!',
+                    html: validation.errors.join('<br>'),
+                    icon: 'error',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+        }
+    });
+    
+    // Original file upload handler (keeping for backward compatibility)
     $('#file_upload').on('change', function() {
         var fileName = $(this).val().split('\\').pop();
         if (fileName) {

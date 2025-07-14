@@ -24,8 +24,19 @@ function base32_decode($data) {
 $encoded_file_name = isset($_GET['file']) ? $_GET['file'] : '';
 $file_name = base32_decode($encoded_file_name);
 
-// ตรวจสอบว่าไฟล์มีอยู่ในโฟลเดอร์ 'uploads'
+// ตรวจสอบว่าไฟล์มีอยู่ในโฟลเดอร์ 'uploads' หรือโฟลเดอร์ย่อย
 $file_path = 'uploads/' . $file_name;
+
+// ถ้าไฟล์ไม่อยู่ในโฟลเดอร์หลัก ให้ค้นหาในโฟลเดอร์ย่อย
+if (!file_exists($file_path)) {
+    // ค้นหาไฟล์ในโฟลเดอร์ย่อยตามปี/เดือน
+    $search_pattern = 'uploads/*/*/' . $file_name;
+    $found_files = glob($search_pattern);
+    
+    if (!empty($found_files)) {
+        $file_path = $found_files[0];
+    }
+}
 
 if (file_exists($file_path)) {
     // ตั้งค่าหัวข้อ HTTP สำหรับการดาวน์โหลดไฟล์
