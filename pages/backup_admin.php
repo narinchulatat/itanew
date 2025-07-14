@@ -201,13 +201,22 @@ $cleanupPreview = $backupCleanup->getCleanupPreview();
                     <h5 class="text-lg font-semibold text-gray-800"><i class="fas fa-info-circle"></i> System Status</h5>
                 </div>
                 <div class="p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
                         <div class="text-center">
                             <div class="<?php echo $systemStatus['config_ok'] ? 'status-ok' : 'status-error'; ?>">
                                 <i class="fas fa-<?php echo $systemStatus['config_ok'] ? 'check-circle' : 'exclamation-triangle'; ?> text-4xl"></i>
                             </div>
                             <div class="mt-2 text-sm text-gray-600">
                                 <?php echo $systemStatus['config_ok'] ? 'System OK' : 'Configuration Error'; ?>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="status-ok">
+                                <i class="fas fa-desktop text-4xl"></i>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600">
+                                OS: <?php echo $systemStatus['os_family']; ?><br>
+                                Format: <?php echo $systemStatus['backup_format']; ?>
                             </div>
                         </div>
                         <div class="text-center">
@@ -333,6 +342,11 @@ $cleanupPreview = $backupCleanup->getCleanupPreview();
                                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php echo $backup['type'] === 'database' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'; ?>">
                                                 <?php echo ucfirst($backup['type']); ?>
                                             </span>
+                                            <?php if (isset($backup['format'])): ?>
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                    <?php echo strtoupper($backup['format']); ?>
+                                                </span>
+                                            <?php endif; ?>
                                             <span class="flex items-center">
                                                 <i class="fas fa-weight-hanging mr-1"></i> <?php echo formatBytes($backup['size']); ?>
                                             </span>
@@ -406,6 +420,14 @@ $cleanupPreview = $backupCleanup->getCleanupPreview();
                                 <li><strong>Full Backup:</strong> Creates both database and files backups</li>
                             </ul>
                             
+                            <h6 class="font-semibold text-gray-800 mb-3 mt-6">Cross-Platform Support:</h6>
+                            <ul class="list-disc list-inside text-gray-700 space-y-1">
+                                <li><strong>Windows:</strong> Uses ZIP format for file backups</li>
+                                <li><strong>Linux/Unix:</strong> Uses TAR.GZ format for file backups</li>
+                                <li><strong>Database:</strong> Uses SQL.GZ format on all platforms</li>
+                                <li><strong>Auto-detection:</strong> System automatically detects OS and uses appropriate format</li>
+                            </ul>
+                            
                             <h6 class="font-semibold text-gray-800 mb-3 mt-6">Automated Backups:</h6>
                             <p class="text-gray-700 mb-3">Set up cron jobs for automated backups:</p>
                             <div class="bg-gray-800 text-gray-100 p-4 rounded text-sm font-mono overflow-x-auto">
@@ -422,7 +444,10 @@ $cleanupPreview = $backupCleanup->getCleanupPreview();
                         <div>
                             <h6 class="font-semibold text-gray-800 mb-3">Important Notes:</h6>
                             <ul class="list-disc list-inside text-gray-700 space-y-1">
-                                <li>Backups are automatically compressed with gzip</li>
+                                <li>Database backups are compressed with gzip on all platforms</li>
+                                <li>File backups use ZIP on Windows, TAR.GZ on Linux/Unix</li>
+                                <li>System automatically detects OS and uses appropriate tools</li>
+                                <li>Cross-platform restore: ZIP and TAR.GZ formats both supported</li>
                                 <li>Old backups (> <?php echo BACKUP_RETENTION_DAYS; ?> days) are automatically deleted</li>
                                 <li>Database restores create automatic restore points</li>
                                 <li>All operations are logged for audit purposes</li>
