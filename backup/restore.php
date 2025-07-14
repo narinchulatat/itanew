@@ -50,8 +50,8 @@ class BackupRestore {
             $command = sprintf(
                 '%s -dc %s > %s',
                 GUNZIP_PATH,
-                escapeshellarg($backupPath),
-                escapeshellarg($tempFile)
+                escapeShellArgCrossPlatform($backupPath),
+                escapeShellArgCrossPlatform($tempFile)
             );
             
             $output = [];
@@ -76,7 +76,7 @@ class BackupRestore {
                 DB_USER,
                 DB_PASS,
                 DB_NAME,
-                escapeshellarg($tempFile)
+                escapeShellArgCrossPlatform($tempFile)
             );
             
             $output = [];
@@ -136,29 +136,15 @@ class BackupRestore {
             
             logBackupMessage("Starting files restore from: $backupFilename to: $targetDir");
             
-            // Create restore command
-            $command = sprintf(
-                'cd %s && tar -xzf %s',
-                escapeshellarg($targetDir),
-                escapeshellarg($backupPath)
-            );
-            
-            $output = [];
-            $return_var = 0;
-            exec($command . ' 2>&1', $output, $return_var);
-            
-            if ($return_var === 0) {
-                logBackupMessage("Files restore completed successfully from: $backupFilename");
-                return [
-                    'success' => true,
-                    'message' => 'Files restored successfully'
-                ];
+            // Determine format and restore accordingly
+            if (substr($backupFilename, -4) === '.zip') {
+                return $this->restoreFilesFromZip($backupPath, $targetDir, $backupFilename);
+            } elseif (substr($backupFilename, -7) === '.tar.gz') {
+                return $this->restoreFilesFromTarGz($backupPath, $targetDir, $backupFilename);
             } else {
-                $error = implode("\n", $output);
-                logBackupMessage("Files restore failed: $error", 'ERROR');
                 return [
                     'success' => false,
-                    'error' => 'Files restore failed: ' . $error
+                    'error' => 'Unsupported backup format'
                 ];
             }
             
@@ -167,6 +153,142 @@ class BackupRestore {
             return [
                 'success' => false,
                 'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Restore files from ZIP archive
+     */
+    private function restoreFilesFromZip($backupPath, $targetDir, $backupFilename) {
+        if (!class_exists('ZipArchive')) {
+            return [
+                'success' => false,
+                'error' => 'ZipArchive extension not available'
+            ];
+        }
+        
+        $zip = new ZipArchive();
+        $result = $zip->open($backupPath);
+        
+        if ($result !== TRUE) {
+            return [
+                'success' => false,
+                'error' => "Cannot open zip file (Error code: $result)"
+            ];
+        }
+        
+        try {
+            // Ensure target directory exists
+            if (!is_dir($targetDir)) {
+                if (!mkdir($targetDir, 0755, true)) {
+                    $zip->close();
+                    return [
+                        'success' => false,
+                        'error' => "Cannot create target directory: $targetDir"
+                    ];
+                }
+            }
+            
+            // Extract files with proper error handling
+            $extractedFiles = 0;
+            $errors = [];
+            
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $filename = $zip->getNameIndex($i);
+                $fileInfo = $zip->statIndex($i);
+                
+                if ($fileInfo['size'] == 0 && substr($filename, -1) === '/') {
+                    // Skip directories
+                    continue;
+                }
+                
+                $targetPath = $targetDir . DIRECTORY_SEPARATOR . $filename;
+                $targetDir_file = dirname($targetPath);
+                
+                // Create directory if it doesn't exist
+                if (!is_dir($targetDir_file)) {
+                    if (!mkdir($targetDir_file, 0755, true)) {
+                        $errors[] = "Cannot create directory: $targetDir_file";
+                        continue;
+                    }
+                }
+                
+                // Extract file
+                if ($zip->extractTo($targetDir, $filename)) {
+                    $extractedFiles++;
+                } else {
+                    $errors[] = "Cannot extract file: $filename";
+                }
+            }
+            
+            $zip->close();
+            
+            if ($extractedFiles > 0) {
+                $message = "Files restore completed successfully from: $backupFilename ($extractedFiles files)";
+                if (!empty($errors)) {
+                    $message .= " with " . count($errors) . " errors";
+                }
+                logBackupMessage($message);
+                
+                $result = [
+                    'success' => true,
+                    'message' => 'Files restored successfully from ZIP archive',
+                    'extracted_files' => $extractedFiles
+                ];
+                
+                if (!empty($errors)) {
+                    $result['warnings'] = $errors;
+                    logBackupMessage("Restore completed with warnings: " . implode(', ', array_slice($errors, 0, 5)), 'WARNING');
+                }
+                
+                return $result;
+            } else {
+                logBackupMessage("ZIP files restore failed: no files extracted", 'ERROR');
+                return [
+                    'success' => false,
+                    'error' => 'No files were extracted from ZIP archive'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            $zip->close();
+            logBackupMessage("Exception during ZIP restore: " . $e->getMessage(), 'ERROR');
+            return [
+                'success' => false,
+                'error' => 'Exception during restore: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Restore files from TAR.GZ archive
+     */
+    private function restoreFilesFromTarGz($backupPath, $targetDir, $backupFilename) {
+        // Create restore command
+        $command = sprintf(
+            'cd %s && %s -xzf %s',
+            escapeShellArgCrossPlatform($targetDir),
+            TAR_PATH,
+            escapeShellArgCrossPlatform($backupPath)
+        );
+        
+        $output = [];
+        $return_var = 0;
+        exec($command . ' 2>&1', $output, $return_var);
+        
+        if ($return_var === 0) {
+            logBackupMessage("Files restore completed successfully from: $backupFilename");
+            return [
+                'success' => true,
+                'message' => 'Files restored successfully from TAR.GZ archive'
+            ];
+        } else {
+            $error = implode("\n", $output);
+            logBackupMessage("TAR.GZ files restore failed: $error", 'ERROR');
+            return [
+                'success' => false,
+                'error' => 'Files restore failed: ' . $error
             ];
         }
     }
@@ -191,15 +313,31 @@ class BackupRestore {
             'path' => $backupPath
         ];
         
-        // Determine type
+        // Determine type and format
         if (strpos($backupFilename, BACKUP_DB_PREFIX) === 0) {
             $info['type'] = 'database';
+            $info['format'] = 'sql.gz';
             $info['can_restore'] = true;
         } elseif (strpos($backupFilename, BACKUP_FILES_PREFIX) === 0) {
             $info['type'] = 'files';
             $info['can_restore'] = true;
+            
+            // Determine format based on extension
+            if (substr($backupFilename, -4) === '.zip') {
+                $info['format'] = 'zip';
+            } elseif (substr($backupFilename, -7) === '.tar.gz') {
+                $info['format'] = 'tar.gz';
+            } else {
+                $info['format'] = 'unknown';
+                $info['can_restore'] = false;
+            }
+        } elseif (strpos($backupFilename, 'restore_point_') === 0) {
+            $info['type'] = 'restore_point';
+            $info['format'] = 'sql.gz';
+            $info['can_restore'] = true;
         } else {
             $info['type'] = 'unknown';
+            $info['format'] = 'unknown';
             $info['can_restore'] = false;
         }
         
@@ -228,12 +366,13 @@ class BackupRestore {
         }
         
         $type = $info['info']['type'];
+        $format = $info['info']['format'] ?? 'unknown';
         $isValid = false;
         $details = [];
         
         if ($type === 'database') {
             // Test gzip integrity
-            $command = sprintf('%s -t %s', GZIP_PATH, escapeshellarg($backupPath));
+            $command = sprintf('%s -t %s', GZIP_PATH, escapeShellArgCrossPlatform($backupPath));
             $output = [];
             $return_var = 0;
             exec($command . ' 2>&1', $output, $return_var);
@@ -243,7 +382,7 @@ class BackupRestore {
                 $details[] = 'Gzip compression is valid';
                 
                 // Try to peek into SQL content
-                $command = sprintf('%s -dc %s | head -20', GUNZIP_PATH, escapeshellarg($backupPath));
+                $command = sprintf('%s -dc %s | head -20', GUNZIP_PATH, escapeShellArgCrossPlatform($backupPath));
                 exec($command . ' 2>&1', $output, $return_var);
                 
                 if ($return_var === 0 && !empty($output)) {
@@ -268,29 +407,51 @@ class BackupRestore {
             }
             
         } elseif ($type === 'files') {
-            // Test tar.gz integrity
-            $command = sprintf('tar -tzf %s > /dev/null', escapeshellarg($backupPath));
-            $output = [];
-            $return_var = 0;
-            exec($command . ' 2>&1', $output, $return_var);
-            
-            if ($return_var === 0) {
-                $isValid = true;
-                $details[] = 'Tar.gz archive is valid';
+            if ($format === 'zip') {
+                // Test ZIP integrity
+                if (class_exists('ZipArchive')) {
+                    $zip = new ZipArchive();
+                    $result = $zip->open($backupPath, ZipArchive::CHECKCONS);
+                    
+                    if ($result === TRUE) {
+                        $isValid = true;
+                        $details[] = 'ZIP archive is valid';
+                        $details[] = "Contains {$zip->numFiles} files";
+                        $zip->close();
+                    } else {
+                        $details[] = "ZIP archive is corrupted (Error code: $result)";
+                    }
+                } else {
+                    $details[] = 'Cannot verify ZIP - ZipArchive not available';
+                }
+            } elseif ($format === 'tar.gz') {
+                // Test tar.gz integrity
+                $command = sprintf('%s -tzf %s > /dev/null', TAR_PATH, escapeShellArgCrossPlatform($backupPath));
+                $output = [];
+                $return_var = 0;
+                exec($command . ' 2>&1', $output, $return_var);
                 
-                // Count files in archive
-                $command = sprintf('tar -tzf %s | wc -l', escapeshellarg($backupPath));
-                $fileCount = (int) trim(shell_exec($command));
-                $details[] = "Contains $fileCount files";
+                if ($return_var === 0) {
+                    $isValid = true;
+                    $details[] = 'TAR.GZ archive is valid';
+                    
+                    // Count files in archive
+                    $command = sprintf('%s -tzf %s | wc -l', TAR_PATH, escapeShellArgCrossPlatform($backupPath));
+                    $fileCount = (int) trim(shell_exec($command));
+                    $details[] = "Contains $fileCount files";
+                } else {
+                    $details[] = 'TAR.GZ archive is corrupted';
+                }
             } else {
-                $details[] = 'Tar.gz archive is corrupted';
+                $details[] = 'Unknown file format - cannot verify';
             }
         }
         
         return [
             'success' => true,
             'valid' => $isValid,
-            'details' => $details
+            'details' => $details,
+            'format' => $format
         ];
     }
     

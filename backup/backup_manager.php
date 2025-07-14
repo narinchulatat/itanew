@@ -23,20 +23,35 @@ class BackupManager {
         try {
             ensureBackupDir();
             
-            $filename = generateBackupFilename(BACKUP_DB_PREFIX);
+            $filename = generateBackupFilename(BACKUP_DB_PREFIX, '.sql.gz');
             $filepath = BACKUP_DIR . $filename;
             
-            // Create mysqldump command
-            $command = sprintf(
-                '%s --host=%s --user=%s --password=%s --single-transaction --routines --triggers %s | %s > %s',
-                MYSQLDUMP_PATH,
-                DB_HOST,
-                DB_USER,
-                DB_PASS,
-                DB_NAME,
-                GZIP_PATH,
-                escapeshellarg($filepath)
-            );
+            // Create mysqldump command with proper escaping
+            if (IS_WINDOWS) {
+                // Windows-specific command construction
+                $command = sprintf(
+                    '%s --host=%s --user=%s --password=%s --single-transaction --routines --triggers %s | %s > %s',
+                    MYSQLDUMP_PATH,
+                    DB_HOST,
+                    DB_USER,
+                    DB_PASS,
+                    DB_NAME,
+                    GZIP_PATH,
+                    escapeShellArgCrossPlatform($filepath)
+                );
+            } else {
+                // Unix-specific command construction
+                $command = sprintf(
+                    '%s --host=%s --user=%s --password=%s --single-transaction --routines --triggers %s | %s > %s',
+                    MYSQLDUMP_PATH,
+                    DB_HOST,
+                    DB_USER,
+                    DB_PASS,
+                    DB_NAME,
+                    GZIP_PATH,
+                    escapeShellArgCrossPlatform($filepath)
+                );
+            }
             
             // Execute backup
             $output = [];
@@ -78,46 +93,13 @@ class BackupManager {
         try {
             ensureBackupDir();
             
-            $filename = generateBackupFilename(BACKUP_FILES_PREFIX, '.tar.gz');
+            $filename = generateBackupFilename(BACKUP_FILES_PREFIX);
             $filepath = BACKUP_DIR . $filename;
             
-            // Create temporary file list
-            $tempList = tempnam(sys_get_temp_dir(), 'backup_files_');
-            $this->createFilesList($tempList);
-            
-            // Create tar command
-            $command = sprintf(
-                'cd %s && tar -czf %s -T %s',
-                escapeshellarg(WEB_ROOT),
-                escapeshellarg($filepath),
-                escapeshellarg($tempList)
-            );
-            
-            // Execute backup
-            $output = [];
-            $return_var = 0;
-            exec($command . ' 2>&1', $output, $return_var);
-            
-            // Clean up temp file
-            unlink($tempList);
-            
-            if ($return_var === 0 && file_exists($filepath)) {
-                $size = filesize($filepath);
-                logBackupMessage("Files backup created successfully: $filename (Size: " . formatBytes($size) . ")");
-                return [
-                    'success' => true,
-                    'filename' => $filename,
-                    'filepath' => $filepath,
-                    'size' => $size,
-                    'type' => 'files'
-                ];
+            if (IS_WINDOWS) {
+                return $this->createFilesBackupWindows($filename, $filepath);
             } else {
-                $error = implode("\n", $output);
-                logBackupMessage("Files backup failed: $error", 'ERROR');
-                return [
-                    'success' => false,
-                    'error' => $error
-                ];
+                return $this->createFilesBackupUnix($filename, $filepath);
             }
             
         } catch (Exception $e) {
@@ -127,6 +109,185 @@ class BackupManager {
                 'error' => $e->getMessage()
             ];
         }
+    }
+    
+    /**
+     * Create files backup using Windows ZipArchive
+     */
+    private function createFilesBackupWindows($filename, $filepath) {
+        if (!class_exists('ZipArchive')) {
+            logBackupMessage("ZipArchive extension not available", 'ERROR');
+            return [
+                'success' => false,
+                'error' => 'ZipArchive extension not available'
+            ];
+        }
+        
+        $zip = new ZipArchive();
+        $result = $zip->open($filepath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        
+        if ($result !== TRUE) {
+            logBackupMessage("Cannot create zip file: $filepath (Error code: $result)", 'ERROR');
+            return [
+                'success' => false,
+                'error' => "Cannot create zip file (Error code: $result)"
+            ];
+        }
+        
+        $webRoot = normalizePath(WEB_ROOT);
+        $fileCount = 0;
+        $errors = [];
+        
+        try {
+            // Use RecursiveIteratorIterator to traverse directories
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($webRoot, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::SELF_FIRST
+            );
+            
+            foreach ($iterator as $file) {
+                if ($file->isFile()) {
+                    $filePath = normalizePath($file->getPathname());
+                    $relativePath = getRelativePath($filePath);
+                    
+                    // Skip excluded directories and files
+                    if ($this->shouldExcludeFile($relativePath)) {
+                        continue;
+                    }
+                    
+                    // Add file to zip using Unix-style paths for consistency
+                    $zipPath = convertToUnixPath($relativePath);
+                    
+                    // Handle potential file access issues on Windows
+                    if (!is_readable($filePath)) {
+                        $errors[] = "Cannot read file: $relativePath";
+                        continue;
+                    }
+                    
+                    $addResult = $zip->addFile($filePath, $zipPath);
+                    if (!$addResult) {
+                        $errors[] = "Cannot add file to zip: $relativePath";
+                        continue;
+                    }
+                    
+                    $fileCount++;
+                    
+                    // Log progress for large backups
+                    if ($fileCount % 100 === 0) {
+                        logBackupMessage("Added $fileCount files to backup...");
+                    }
+                }
+            }
+            
+            $zip->close();
+            
+            if (file_exists($filepath) && filesize($filepath) > 0) {
+                $size = filesize($filepath);
+                $message = "Files backup created successfully: $filename ($fileCount files";
+                if (!empty($errors)) {
+                    $message .= ", " . count($errors) . " errors";
+                }
+                $message .= ", Size: " . formatBytes($size) . ")";
+                logBackupMessage($message);
+                
+                $result = [
+                    'success' => true,
+                    'filename' => $filename,
+                    'filepath' => $filepath,
+                    'size' => $size,
+                    'type' => 'files',
+                    'file_count' => $fileCount
+                ];
+                
+                if (!empty($errors)) {
+                    $result['warnings'] = $errors;
+                    logBackupMessage("Backup completed with warnings: " . implode(', ', array_slice($errors, 0, 5)), 'WARNING');
+                }
+                
+                return $result;
+            } else {
+                logBackupMessage("Windows files backup failed: zip file not created or empty", 'ERROR');
+                return [
+                    'success' => false,
+                    'error' => 'Zip file not created or empty'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            $zip->close();
+            logBackupMessage("Exception during Windows backup: " . $e->getMessage(), 'ERROR');
+            return [
+                'success' => false,
+                'error' => 'Exception during backup: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Create files backup using Unix tar/gzip
+     */
+    private function createFilesBackupUnix($filename, $filepath) {
+        // Create temporary file list
+        $tempList = tempnam(sys_get_temp_dir(), 'backup_files_');
+        $this->createFilesList($tempList);
+        
+        // Create tar command
+        $command = sprintf(
+            'cd %s && %s -czf %s -T %s',
+            escapeShellArgCrossPlatform(WEB_ROOT),
+            TAR_PATH,
+            escapeShellArgCrossPlatform($filepath),
+            escapeShellArgCrossPlatform($tempList)
+        );
+        
+        // Execute backup
+        $output = [];
+        $return_var = 0;
+        exec($command . ' 2>&1', $output, $return_var);
+        
+        // Clean up temp file
+        unlink($tempList);
+        
+        if ($return_var === 0 && file_exists($filepath)) {
+            $size = filesize($filepath);
+            logBackupMessage("Files backup created successfully: $filename (Size: " . formatBytes($size) . ")");
+            return [
+                'success' => true,
+                'filename' => $filename,
+                'filepath' => $filepath,
+                'size' => $size,
+                'type' => 'files'
+            ];
+        } else {
+            $error = implode("\n", $output);
+            logBackupMessage("Unix files backup failed: $error", 'ERROR');
+            return [
+                'success' => false,
+                'error' => $error
+            ];
+        }
+    }
+    
+    /**
+     * Check if a file should be excluded from backup
+     */
+    private function shouldExcludeFile($relativePath) {
+        // Skip excluded directories
+        foreach (EXCLUDE_DIRS as $excludeDir) {
+            if (strpos($relativePath, $excludeDir . BACKUP_PATH_SEPARATOR) === 0 || 
+                strpos($relativePath, $excludeDir . '/') === 0) {
+                return true;
+            }
+        }
+        
+        // Skip excluded files
+        foreach (EXCLUDE_FILES as $excludeFile) {
+            if (fnmatch($excludeFile, basename($relativePath))) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     /**
@@ -180,13 +341,26 @@ class BackupManager {
                 'age_days' => floor((time() - filemtime($filepath)) / 86400)
             ];
             
-            // Determine backup type
+            // Determine backup type and format
             if (strpos($file, BACKUP_DB_PREFIX) === 0) {
                 $backup['type'] = 'database';
+                $backup['format'] = 'sql.gz';
             } elseif (strpos($file, BACKUP_FILES_PREFIX) === 0) {
                 $backup['type'] = 'files';
+                // Determine format based on file extension
+                if (substr($file, -4) === '.zip') {
+                    $backup['format'] = 'zip';
+                } elseif (substr($file, -7) === '.tar.gz') {
+                    $backup['format'] = 'tar.gz';
+                } else {
+                    $backup['format'] = 'unknown';
+                }
+            } elseif (strpos($file, 'restore_point_') === 0) {
+                $backup['type'] = 'restore_point';
+                $backup['format'] = 'sql.gz';
             } else {
                 $backup['type'] = 'unknown';
+                $backup['format'] = 'unknown';
             }
             
             $backups[] = $backup;
@@ -232,40 +406,27 @@ class BackupManager {
      * Create file list for backup (excluding specified directories and files)
      */
     private function createFilesList($listFile) {
+        $webRoot = normalizePath(WEB_ROOT);
+        
         $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator(WEB_ROOT),
+            new RecursiveDirectoryIterator($webRoot, RecursiveDirectoryIterator::SKIP_DOTS),
             RecursiveIteratorIterator::SELF_FIRST
         );
         
         $files = [];
         foreach ($iterator as $file) {
-            $relativePath = str_replace(WEB_ROOT . '/', '', $file->getPathname());
-            
             // Skip if it's a directory
             if ($file->isDir()) continue;
             
-            // Skip excluded directories
-            $skip = false;
-            foreach (EXCLUDE_DIRS as $excludeDir) {
-                if (strpos($relativePath, $excludeDir . '/') === 0) {
-                    $skip = true;
-                    break;
-                }
-            }
-            
-            if ($skip) continue;
+            $relativePath = getRelativePath($file->getPathname());
             
             // Skip excluded files
-            foreach (EXCLUDE_FILES as $excludeFile) {
-                if (fnmatch($excludeFile, basename($relativePath))) {
-                    $skip = true;
-                    break;
-                }
+            if ($this->shouldExcludeFile($relativePath)) {
+                continue;
             }
             
-            if ($skip) continue;
-            
-            $files[] = $relativePath;
+            // For tar, use Unix-style paths
+            $files[] = str_replace('\\', '/', $relativePath);
         }
         
         file_put_contents($listFile, implode("\n", $files));
@@ -279,7 +440,10 @@ class BackupManager {
             'config_ok' => true,
             'errors' => [],
             'disk_space' => disk_free_space(BACKUP_DIR),
-            'backup_count' => count($this->getBackupList())
+            'backup_count' => count($this->getBackupList()),
+            'os_family' => PHP_OS_FAMILY,
+            'is_windows' => IS_WINDOWS,
+            'backup_format' => IS_WINDOWS ? 'ZIP' : 'TAR.GZ'
         ];
         
         // Check configuration
@@ -288,6 +452,9 @@ class BackupManager {
             $status['config_ok'] = false;
             $status['errors'] = $configErrors;
         }
+        
+        // Get tool availability
+        $status['tools'] = checkBackupTools();
         
         return $status;
     }
