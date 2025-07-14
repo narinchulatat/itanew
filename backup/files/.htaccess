@@ -1,0 +1,13 @@
+# Backup Files Directory
+# Access to this directory is restricted
+# Only admin users can access backup files
+
+Options -Indexes
+<Files "*.sql.gz">
+    Order allow,deny
+    Allow from all
+</Files>
+<Files "*.tar.gz">
+    Order allow,deny
+    Allow from all
+</Files>
