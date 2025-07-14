@@ -178,21 +178,85 @@ class BackupRestore {
             ];
         }
         
-        // Extract files
-        $extractResult = $zip->extractTo($targetDir);
-        $zip->close();
-        
-        if ($extractResult) {
-            logBackupMessage("Files restore completed successfully from: $backupFilename");
-            return [
-                'success' => true,
-                'message' => 'Files restored successfully from ZIP archive'
-            ];
-        } else {
-            logBackupMessage("ZIP files restore failed", 'ERROR');
+        try {
+            // Ensure target directory exists
+            if (!is_dir($targetDir)) {
+                if (!mkdir($targetDir, 0755, true)) {
+                    $zip->close();
+                    return [
+                        'success' => false,
+                        'error' => "Cannot create target directory: $targetDir"
+                    ];
+                }
+            }
+            
+            // Extract files with proper error handling
+            $extractedFiles = 0;
+            $errors = [];
+            
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $filename = $zip->getNameIndex($i);
+                $fileInfo = $zip->statIndex($i);
+                
+                if ($fileInfo['size'] == 0 && substr($filename, -1) === '/') {
+                    // Skip directories
+                    continue;
+                }
+                
+                $targetPath = $targetDir . DIRECTORY_SEPARATOR . $filename;
+                $targetDir_file = dirname($targetPath);
+                
+                // Create directory if it doesn't exist
+                if (!is_dir($targetDir_file)) {
+                    if (!mkdir($targetDir_file, 0755, true)) {
+                        $errors[] = "Cannot create directory: $targetDir_file";
+                        continue;
+                    }
+                }
+                
+                // Extract file
+                if ($zip->extractTo($targetDir, $filename)) {
+                    $extractedFiles++;
+                } else {
+                    $errors[] = "Cannot extract file: $filename";
+                }
+            }
+            
+            $zip->close();
+            
+            if ($extractedFiles > 0) {
+                $message = "Files restore completed successfully from: $backupFilename ($extractedFiles files)";
+                if (!empty($errors)) {
+                    $message .= " with " . count($errors) . " errors";
+                }
+                logBackupMessage($message);
+                
+                $result = [
+                    'success' => true,
+                    'message' => 'Files restored successfully from ZIP archive',
+                    'extracted_files' => $extractedFiles
+                ];
+                
+                if (!empty($errors)) {
+                    $result['warnings'] = $errors;
+                    logBackupMessage("Restore completed with warnings: " . implode(', ', array_slice($errors, 0, 5)), 'WARNING');
+                }
+                
+                return $result;
+            } else {
+                logBackupMessage("ZIP files restore failed: no files extracted", 'ERROR');
+                return [
+                    'success' => false,
+                    'error' => 'No files were extracted from ZIP archive'
+                ];
+            }
+            
+        } catch (Exception $e) {
+            $zip->close();
+            logBackupMessage("Exception during ZIP restore: " . $e->getMessage(), 'ERROR');
             return [
                 'success' => false,
-                'error' => 'Failed to extract ZIP archive'
+                'error' => 'Exception during restore: ' . $e->getMessage()
             ];
         }
     }

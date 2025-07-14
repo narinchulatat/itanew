@@ -156,6 +156,12 @@ function getRelativePath($fullPath) {
     $webRoot = normalizePath(WEB_ROOT);
     $fullPath = normalizePath($fullPath);
     
+    // Handle Windows drive letters
+    if (IS_WINDOWS) {
+        $webRoot = strtolower($webRoot);
+        $fullPath = strtolower($fullPath);
+    }
+    
     if (strpos($fullPath, $webRoot) === 0) {
         return substr($fullPath, strlen($webRoot) + 1);
     }
@@ -168,12 +174,30 @@ function getRelativePath($fullPath) {
  */
 function escapeShellArgCrossPlatform($arg) {
     if (IS_WINDOWS) {
-        // Windows-specific escaping
-        return '"' . str_replace('"', '""', $arg) . '"';
+        // Windows-specific escaping - handle spaces and special characters
+        $arg = str_replace('"', '""', $arg);
+        if (strpos($arg, ' ') !== false || strpos($arg, '&') !== false || strpos($arg, '|') !== false) {
+            return '"' . $arg . '"';
+        }
+        return $arg;
     } else {
         // Unix-specific escaping
         return escapeshellarg($arg);
     }
+}
+
+/**
+ * Check if a path is a Windows absolute path
+ */
+function isWindowsAbsolutePath($path) {
+    return IS_WINDOWS && preg_match('/^[A-Za-z]:[\\\\\/]/', $path);
+}
+
+/**
+ * Convert Windows path to Unix-style for consistency
+ */
+function convertToUnixPath($path) {
+    return str_replace('\\', '/', $path);
 }
 
 /**

@@ -26,17 +26,32 @@ class BackupManager {
             $filename = generateBackupFilename(BACKUP_DB_PREFIX, '.sql.gz');
             $filepath = BACKUP_DIR . $filename;
             
-            // Create mysqldump command
-            $command = sprintf(
-                '%s --host=%s --user=%s --password=%s --single-transaction --routines --triggers %s | %s > %s',
-                MYSQLDUMP_PATH,
-                DB_HOST,
-                DB_USER,
-                DB_PASS,
-                DB_NAME,
-                GZIP_PATH,
-                escapeShellArgCrossPlatform($filepath)
-            );
+            // Create mysqldump command with proper escaping
+            if (IS_WINDOWS) {
+                // Windows-specific command construction
+                $command = sprintf(
+                    '%s --host=%s --user=%s --password=%s --single-transaction --routines --triggers %s | %s > %s',
+                    MYSQLDUMP_PATH,
+                    DB_HOST,
+                    DB_USER,
+                    DB_PASS,
+                    DB_NAME,
+                    GZIP_PATH,
+                    escapeShellArgCrossPlatform($filepath)
+                );
+            } else {
+                // Unix-specific command construction
+                $command = sprintf(
+                    '%s --host=%s --user=%s --password=%s --single-transaction --routines --triggers %s | %s > %s',
+                    MYSQLDUMP_PATH,
+                    DB_HOST,
+                    DB_USER,
+                    DB_PASS,
+                    DB_NAME,
+                    GZIP_PATH,
+                    escapeShellArgCrossPlatform($filepath)
+                );
+            }
             
             // Execute backup
             $output = [];
@@ -121,48 +136,89 @@ class BackupManager {
         
         $webRoot = normalizePath(WEB_ROOT);
         $fileCount = 0;
+        $errors = [];
         
-        // Use RecursiveIteratorIterator to traverse directories
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($webRoot, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-        
-        foreach ($iterator as $file) {
-            if ($file->isFile()) {
-                $filePath = normalizePath($file->getPathname());
-                $relativePath = getRelativePath($filePath);
+        try {
+            // Use RecursiveIteratorIterator to traverse directories
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($webRoot, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::SELF_FIRST
+            );
+            
+            foreach ($iterator as $file) {
+                if ($file->isFile()) {
+                    $filePath = normalizePath($file->getPathname());
+                    $relativePath = getRelativePath($filePath);
+                    
+                    // Skip excluded directories and files
+                    if ($this->shouldExcludeFile($relativePath)) {
+                        continue;
+                    }
+                    
+                    // Add file to zip using Unix-style paths for consistency
+                    $zipPath = convertToUnixPath($relativePath);
+                    
+                    // Handle potential file access issues on Windows
+                    if (!is_readable($filePath)) {
+                        $errors[] = "Cannot read file: $relativePath";
+                        continue;
+                    }
+                    
+                    $addResult = $zip->addFile($filePath, $zipPath);
+                    if (!$addResult) {
+                        $errors[] = "Cannot add file to zip: $relativePath";
+                        continue;
+                    }
+                    
+                    $fileCount++;
+                    
+                    // Log progress for large backups
+                    if ($fileCount % 100 === 0) {
+                        logBackupMessage("Added $fileCount files to backup...");
+                    }
+                }
+            }
+            
+            $zip->close();
+            
+            if (file_exists($filepath) && filesize($filepath) > 0) {
+                $size = filesize($filepath);
+                $message = "Files backup created successfully: $filename ($fileCount files";
+                if (!empty($errors)) {
+                    $message .= ", " . count($errors) . " errors";
+                }
+                $message .= ", Size: " . formatBytes($size) . ")";
+                logBackupMessage($message);
                 
-                // Skip excluded directories and files
-                if ($this->shouldExcludeFile($relativePath)) {
-                    continue;
+                $result = [
+                    'success' => true,
+                    'filename' => $filename,
+                    'filepath' => $filepath,
+                    'size' => $size,
+                    'type' => 'files',
+                    'file_count' => $fileCount
+                ];
+                
+                if (!empty($errors)) {
+                    $result['warnings'] = $errors;
+                    logBackupMessage("Backup completed with warnings: " . implode(', ', array_slice($errors, 0, 5)), 'WARNING');
                 }
                 
-                // Add file to zip using Unix-style paths for consistency
-                $zipPath = str_replace('\\', '/', $relativePath);
-                $zip->addFile($filePath, $zipPath);
-                $fileCount++;
+                return $result;
+            } else {
+                logBackupMessage("Windows files backup failed: zip file not created or empty", 'ERROR');
+                return [
+                    'success' => false,
+                    'error' => 'Zip file not created or empty'
+                ];
             }
-        }
-        
-        $zip->close();
-        
-        if (file_exists($filepath) && filesize($filepath) > 0) {
-            $size = filesize($filepath);
-            logBackupMessage("Files backup created successfully: $filename ($fileCount files, Size: " . formatBytes($size) . ")");
-            return [
-                'success' => true,
-                'filename' => $filename,
-                'filepath' => $filepath,
-                'size' => $size,
-                'type' => 'files',
-                'file_count' => $fileCount
-            ];
-        } else {
-            logBackupMessage("Windows files backup failed: zip file not created or empty", 'ERROR');
+            
+        } catch (Exception $e) {
+            $zip->close();
+            logBackupMessage("Exception during Windows backup: " . $e->getMessage(), 'ERROR');
             return [
                 'success' => false,
-                'error' => 'Zip file not created or empty'
+                'error' => 'Exception during backup: ' . $e->getMessage()
             ];
         }
     }
